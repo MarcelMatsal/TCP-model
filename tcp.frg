@@ -32,24 +32,24 @@ sig Packet {
     src: one Node,
     dst: one Node,
     seqNum: one Int,
-    ackNum: one Int,
+    ackNum: one Int
 }
 
 one sig Sender extends Node {
-    var sendBuffer = set Packet
+    var sendBuffer: set Packet,
     var seqNum: one Int,
     var ackNum: one Int,
-    var receiver: lone Receiver,
+    var receiver: lone Receiver
 }
 
 one sig Receiver extends Node {
     var seqNum: one Int,
     var ackNum: one Int,
-    var sender: lone Sender,
+    var sender: lone Sender
 }
 
 one sig Network {
-    var packets: set Packet,
+    var packets: set Packet
 }
 
 pred validState {
@@ -142,7 +142,7 @@ pred traces {
 }
 
 run {
-    traces for ...
+    // traces for ...
 }
 
 
