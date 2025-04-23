@@ -25,7 +25,7 @@ sig CloseWait extends State {
 
 abstract sig Node {
     var curState: one State,
-    var receiveBuffer = set Packet
+    var receiveBuffer: set Packet
 }
 
 sig Packet {
