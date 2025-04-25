@@ -141,6 +141,30 @@ pred traces {
     init
 }
 
+
+// THESE possible actions should check some sort of action/boolean to make sure they can occur
+
+run BasicTrac: {
+    // things that constrain the runs and ensure validity
+    init
+    validState
+
+    // things that constrain the actions that happen
+    always {
+        all disj n1, n2: Node | {
+            // possible actions to take
+            // three step handshake, send info or close connection
+            threeStepHandshake[n1, n2] or sendInfo[n1, n2] or closeConnection[n1, n2] or doNothing
+
+            // if a connection is ever opened then it must close eventually
+            // (connectionOpened could be like a flag)
+            (connectionOpened[n1] and connectionOpened[n2]) implies eventually {closeConnection[n1.n2]}
+        }
+    }
+} for 2 Node
+
+
+
 run {
     // traces for ...
 }
