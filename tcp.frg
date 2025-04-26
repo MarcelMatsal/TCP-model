@@ -88,7 +88,9 @@ pred uniqueNodes {
 }
 
 pred connectionMaintainedUntilClosed[sender, receiver: Node] {
-    // somethng about the same sender and receiver until it is placed as closed
+    // the sender and receiver will stay connected to eachother until the connection is closed
+    sender.connectedNode = receiver until {sender.curState = Closed}
+    receiver.connectedNode = sender until {receiver.curState = Closed}
   
 }
 
