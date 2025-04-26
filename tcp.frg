@@ -56,6 +56,8 @@ pred validState {
         (n.curState = Established implies {
             n.connectedNode.connectedNode = n
         })
+        // should we have something like 
+        //(n.curState = Established implies {n.connectedNode != n})
     }
 
     // A nodes send buffer can only contain packets that have the node as the source
@@ -78,8 +80,24 @@ pred validState {
     }
 }
 
+pred uniqueNodes {
+    // predicate that ensures that all the nodes are "distinct" within the netword
+    all disj n1, n2: Node | {
+        n1.id != n2.id
+    }
+}
+
+pred connectionMaintainedUntilClosed[sender, receiver: Node] {
+    // somethng about the same sender and receiver until it is placed as closed
+  
+}
+
+
+
 // The initial state of the system.
 pred init {
+    // all the nodes are unique
+    uniqueNoes
     // All nodes are in closed state:
     all n: Node | {
         n.curState = Closed
