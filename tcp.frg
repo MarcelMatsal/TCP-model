@@ -15,6 +15,7 @@ sig CloseWait extends State {}
 
 // A node in the system.
 sig Node {
+    id: one Int,
     var curState: one State,
     var receiveBuffer: set Packet,
     var sendBuffer: set Packet,
@@ -51,7 +52,10 @@ pred validState {
 
     // Any node with a connected node has to be connected back:
     all n: Node | {
-        some n.connectedNode implies n.connectedNode.connectedNode = n
+        n.curState = Established implies n.connectedNode != none
+        (n.curState = Established implies {
+            n.connectedNode.connectedNode = n
+        })
     }
 
     // A nodes send buffer can only contain packets that have the node as the source
@@ -66,6 +70,11 @@ pred validState {
         all pack: n.receiveBuffer | {
             pack.dst = n
         }
+    }
+
+    // If all nodes are closed, then the network should be empty
+    all n: Node | {
+        n.curState = Closed implies Network.packets = none
     }
 }
 
@@ -98,41 +107,54 @@ pred Connected[node1: Node, node2: Node] {
     node2.connectedNode = node1
 }
 
-pred Open [node: Node] {
-    Sender.curState = Closed
-    Sender.receiver = none
-    #{Sender.sendBuffer} = 0 // empty
+// Predicate used to open a connection and maintain
+// proper state transitions and constraints.
+pred Open [sender, receiver: Node] {
+    // Closed states must be maintained.
+    sender.curState = Closed
+    receiver.curState = Closed
 
-    Sender.receiver' = node
-    Sender.curState' = SynSent
-    some i: Int | {
+    // The nodes cannot be connected to anything.
+    sender.connectedNode = none
+    receiver.connectedNode = none
+    // The nodes cannot have any packets in their buffers.
+    sender.receiveBuffer = none
+    sender.sendBuffer = none
+    receiver.receiveBuffer = none
+    receiver.sendBuffer = none
+
+    // The sender will initiate a connection
+    some i : Int | {
         i >= 0
-        Sender.seqNum' = i
-    }
-    some packet: Packet | {
-        packet.src = Sender
-        packet.dst = Sender.receiver'
-        packet.seqNum = Sender.seqNum'
-        packet.ackNum = Sender.ackNum
+        sender.curState' = SynSent
+        sender.seqNum' = i
+        sender.ackNum' = 0
+        sender.connectedNode' = receiver
 
-        Sender.sendBuffer' = Sender.sendBuffer + packet
-    }
-}
-
-pred userSend {
-
-}
-
-pred Send {
-    #{Sender.sendBuffer} > 0 => {
-        Network.packets' = Network.packets + Sender.sendBuffer
-        #{Sender.sendBuffer'} = 0
+        // We send the SYN packet to the receiver
+        some packet: Packet | {
+            packet.src = sender
+            packet.dst = receiver
+            packet.seqNum = sender.seqNum'
+            packet.ackNum = sender.ackNum'
+            sender.sendBuffer' = packet
+        }
     }
 }
 
+// We send packet through a connection.
+pred userSend[sender: Node] {
+    // I Think that this should add things to a sendbuffer (for later retransmission),
+    // but at this point, just dump all the packets into the network. Right?
+
+}
+
+// Predicate that transfers packets from the network to the destination node's receive buffer.
 pred Transfer {
     all packet: Packet | {
         packet in Network.packets => {
+            // They must be connected.
+            Connected[packet.src, packet.dst]
             packet.dst.receiveBuffer' = packet.dst.receiveBuffer + packet
         }
     }
