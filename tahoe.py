@@ -33,7 +33,20 @@ class Tahoe(object):
         self.acks = [Int(f'ack_{t}') for t in range(T)]
     
     def solve_congestion(self):
-        pass
+        # We define an initial state
+        self.s.add(self.cwnd[0] == 1)
+        self.s.add(self.ssthresh[0] == 16)
+        self.s.add(self.rtt[0] == 0)
+
+        # We loop through time and define the constraints of the Tahoe congestion control algorithm.
+        for t in range(1, len(self.rtt)):
+            # RTT should scale linearly
+            self.s.add(self.rtt[t] == self.rtt[t-1] + 1)
+            # Congestion window and ssthresh must always be greater than 0
+            self.s.add(self.cwnd[t] > 0)
+            self.s.add(self.ssthresh[t] > 0)
+
+            # Based on ACKs, we have different constraints to follow:
 
     def verify_congestion(self, answer):
        pass
@@ -52,29 +65,29 @@ def produce_graph(tahoe_model, ans):
 
 if __name__ == "__main__":
     acks = [
-        AckType.NORMAL,
-        AckType.NORMAL,
-        AckType.TIMEOUT,
-        AckType.NORMAL,
-        AckType.DUPLICATE,
-        AckType.NORMAL,
-        AckType.NORMAL,
-        AckType.TIMEOUT,
-        AckType.NORMAL,
-        AckType.NORMAL,
-        AckType.NORMAL,
-        AckType.NORMAL,
-        AckType.NORMAL,
-        AckType.DUPLICATE,
-        AckType.NORMAL,
+        AckType.NORMAL_ACK,
+        AckType.NORMAL_ACK,
+        AckType.TIMEOUT_ACK,
+        AckType.NORMAL_ACK,
+        AckType.DUPLICATE_ACK,
+        AckType.NORMAL_ACK,
+        AckType.NORMAL_ACK,
+        AckType.TIMEOUT_ACK,
+        AckType.NORMAL_ACK,
+        AckType.NORMAL_ACK,
+        AckType.NORMAL_ACK,
+        AckType.NORMAL_ACK,
+        AckType.NORMAL_ACK,
+        AckType.DUPLICATE_ACK,
+        AckType.NORMAL_ACK,
     ]
 
     tahoe = Tahoe(15, acks)
     
     # We create a congestion solution for the acks received.
     ans = tahoe.solve_congestion()
-    produce_graph(ans)
+    produce_graph(tahoe, ans)
 
     # We verify that the congestion solution passes all our constraints.
     # for a proper Tahoe congestion control algorithm.
-    print(Tahoe.verify_congestion(ans))
+    print(tahoe.verify_congestion(ans))
