@@ -2,32 +2,28 @@
 
 ---------- Definitions ----------
 
-abstract sig State {
-    
-}
+abstract sig State {}
 
-sig Closed extends State {
-}
-sig SynReceived extends State {
-}
-sig SynSent extends State {
-}
-sig Established extends State {
-}
-sig FinWait1 extends State {
-}
-sig FinWait2 extends State {
-}
-sig TimeWait extends State {
-}
-sig CloseWait extends State {
-}
+sig Closed extends State {}
+sig SynReceived extends State {}
+sig SynSent extends State {}
+sig Established extends State {}
+sig FinWait1 extends State {}
+sig FinWait2 extends State {}
+sig TimeWait extends State {}
+sig CloseWait extends State {}
 
-abstract sig Node {
+// A node in the system.
+sig Node {
     var curState: one State,
-    var receiveBuffer: set Packet
+    var receiveBuffer: set Packet,
+    var sendBuffer: set Packet,
+    var seqNum: one Int,
+    var ackNum: one Int,
+    var connectedNode: lone Node
 }
 
+// A packet in the system.
 sig Packet {
     src: one Node,
     dst: one Node,
@@ -35,38 +31,71 @@ sig Packet {
     ackNum: one Int
 }
 
-one sig Sender extends Node {
-    var sendBuffer: set Packet,
-    var seqNum: one Int,
-    var ackNum: one Int,
-    var receiver: lone Receiver
-}
-
-one sig Receiver extends Node {
-    var seqNum: one Int,
-    var ackNum: one Int,
-    var sender: lone Sender
-}
-
+// The network of the system (holding in-transit packets).
 one sig Network {
     var packets: set Packet
 }
 
+// A predicate that checks if the system is in a valid state.
 pred validState {
-// all seq number >= 0
+    // Sequence numbers are non-negative integers
+    all n: Node | {
+        n.seqNum >= 0
+        n.ackNum >= 0
+    }
+
+    // For every packet in a network, the source and destination nodes are distinct
+    all p: Packet | {
+        p.src != p.dst
+    }
+
+    // Any node with a connected node has to be connected back:
+    all n: Node | {
+        some n.connectedNode implies n.connectedNode.connectedNode = n
+    }
+
+    // A nodes send buffer can only contain packets that have the node as the source
+    all n: Node | {
+        all pack : n.sendBuffer | {
+            pack.src = n
+        }
+    }
+
+    // A node's receive buffer can only contain packets that have the node as the destination
+    all n: Node | {
+        all pack: n.receiveBuffer | {
+            pack.dst = n
+        }
+    }
 }
 
+// The initial state of the system.
 pred init {
-    Sender.curState = Closed
-    Receiver.curState = Closed
-    no Sender.sendBuffer
-    no Receiver.receiveBuffer
-    no Network.packets
-    no Sender.receiver
-    no Receiver.sender
+    // All nodes are in closed state:
+    all n: Node | {
+        n.curState = Closed
+    }
+    // The network is empty:
+    Network.packets = none
+    
+    // All nodes should be empty, and not connected:
+    all n: Node | {
+        n.receiveBuffer = none
+        n.sendBuffer = none
+        n.connectedNode = none
+    }
 }
 
-pred Connected[node1, node2: Node] {
+// This predicate is used to check if the two nodes are connected,
+// and what constraints are needed to be satisfied for the connection to be valid.
+pred Connected[node1: Node, node2: Node] {
+    node1 != node2
+    // The connection has been established.
+    (node1.curState = Established and node2.curState = Established)
+
+    // They are each other's receiver and sender.
+    node1.connectedNode = node2
+    node2.connectedNode = node1
 }
 
 pred Open [node: Node] {
