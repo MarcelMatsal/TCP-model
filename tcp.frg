@@ -21,7 +21,14 @@ sig Node {
     var sendBuffer: set Packet,
     var seqNum: one Int,
     var ackNum: one Int,
-    var connectedNode: lone Node
+    var connectedNode: lone Node,
+
+    var send_next: one Int,
+    var send_una: one Int,
+    var send_lbw: one Int,
+
+    var recv_next: one Int,
+    var recv_lbr: one Int,
 }
 
 // A packet in the system.
@@ -152,7 +159,7 @@ pred Open [sender, receiver: Node] {
         sender.connectedNode' = receiver
 
         // We send the SYN packet to the receiver
-        some packet: Packet | {
+        one packet: Packet | {
             packet.src = sender
             packet.dst = receiver
             packet.seqNum = sender.seqNum'
@@ -167,6 +174,27 @@ pred userSend[sender: Node] {
     // I Think that this should add things to a sendbuffer (for later retransmission),
     // but at this point, just dump all the packets into the network. Right?
 
+    sender.curState = Established
+    sender.seqNum' = sender.seqNum + 1
+    sender.ackNum' = sender.ackNum
+    sender.send_lbw' = sender.send_lbw + 1
+
+    one packet: Packet | {
+        packet.src = sender
+        packet.dst = sender.connectedNode
+        packet.seqNum = sender.seqNum'
+        packet.ackNum = sender.ackNum'
+        sender.sendBuffer' = sender.sendBuffer + packet
+    }
+}
+
+pred send[sender: Node] {
+    all packet: sender.sendBuffer | {
+        Network.packets' = Network.packets + packet
+        // not sure if this works?
+        sender.send_next' = packet.seqNum
+    }
+    #{sender.sendBuffer'} = 0
 }
 
 // Predicate that transfers packets from the network to the destination node's receive buffer.
