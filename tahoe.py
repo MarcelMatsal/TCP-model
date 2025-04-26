@@ -47,6 +47,12 @@ class Tahoe(object):
             self.s.add(self.ssthresh[t] > 0)
 
             # Based on ACKs, we have different constraints to follow:
+        
+        # We see if with the given input, we can maintain a correct Tahoe
+        if self.s.check() == sat:
+            return self.s.model()
+        else:
+            raise Exception("No valid congestion control solution found!")
 
     def verify_congestion(self, answer):
        pass
