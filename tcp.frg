@@ -102,7 +102,6 @@ pred connectionMaintainedUntilClosed[sender, receiver: Node] {
 }
 
 
-
 // The initial state of the system.
 pred init {
     // all the nodes are unique
@@ -232,8 +231,45 @@ pred Receive [node: Node] {
     }
 }
 
-pred Close {
+pred Close[sender, receiver: Node] {
+    // They must both be established and connected:
+    connected[sender, receiver]
 
+    // The sender will initiate the close connection.
+    one packet: Packet | {
+        packet.src = sender
+        packet.dst = receiver
+        packet.seqNum = sender.seqNum + 1
+        packet.ackNum = sender.ackNum
+        sender.sendBuffer' = sender.sendBuffer + packet
+
+        // The sender will go into the FinWait1 state.
+        sender.curState' = FinWait1 // Is this weird because it will never actually happen?
+    }
+
+    one ackPacket: Packet | {
+        ackPacket.src = receiver
+        ackPacket.dst = sender
+        ackPacket.seqNum = receiver.seqNum + 1
+        ackPacket.ackNum = sender.seqNum + 1
+        receiver.sendBuffer' = receiver.sendBuffer + ackPacket
+
+        // The receiver will go into the CloseWait state.
+        receiver.curState' = CloseWait // Is this weird because it will never actually happen?
+    }
+
+
+    // They are both closed:
+    sender.curState' = Closed
+    receiver.curState' = Closed
+    // They are not connected to anything:
+    sender.connectedNode' = none
+    receiver.connectedNode' = none
+    // They have no packets in their buffers:
+    sender.receiveBuffer' = none
+    sender.sendBuffer' = none
+    receiver.receiveBuffer' = none
+    receiver.sendBuffer' = none
 }
 
 pred traces {
