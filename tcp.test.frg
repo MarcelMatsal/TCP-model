@@ -281,7 +281,42 @@ test suite for Connected {
 }
 
 test suite for init {
-    
+
+    // SAT CASES
+
+    // all the nodes must be unique
+    assert uniqueNodes is necessary for init
+
+    // all nodes are empty and disconnected
+    test expect {
+        cleanNodes: {
+            init
+            all n: Node | {
+                #{n.receiveBuffer} = 0
+                #{n.sendBuffer} = 0
+                #{n.connectedNode} = 0
+            }
+        } is sat
+    } 
+    // network is empty
+    test expect {
+        cleanNetwork: {
+            init
+            #{Network.packets} = 0
+        } is sat
+    } 
+
+    // all nodes are closed
+    test expect {
+        allClosed: {
+            init
+            all n: Node| {
+                n.curState = Closed
+            }
+        } is sat
+    } 
+
+    // UNSAT CASES
 }
 
 
