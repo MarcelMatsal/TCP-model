@@ -28,15 +28,15 @@ sig Node {
     var send_lbw: one Int,
 
     var recv_next: one Int,
-    var recv_lbr: one Int,
+    var recv_lbr: one Int
 }
 
 // A packet in the system.
 sig Packet {
     src: one Node,
     dst: one Node,
-    seqNum: one Int,
-    ackNum: one Int
+    pSeqNum: one Int,
+    pAckNum: one Int
 }
 
 // The network of the system (holding in-transit packets).
@@ -106,7 +106,7 @@ pred connectionMaintainedUntilClosed[sender, receiver: Node] {
 // The initial state of the system.
 pred init {
     // all the nodes are unique
-    uniqueNoes
+    uniqueNodes
     // All nodes are in closed state:
     all n: Node | {
         n.curState = Closed
@@ -285,34 +285,34 @@ pred isReceiver[n: Node] {
 
 // THESE possible actions should check some sort of action/boolean to make sure they can occur
 
-run BasicTrac: {
-    // things that constrain the runs and ensure validity
-    init
-    validState
-    // things that constrain the actions that happen
-    always {
-        all disj n1, n2: Node | {
+// run BasicTrace: {
+//     // things that constrain the runs and ensure validity
+//     init
+//     validState
+//     // things that constrain the actions that happen
+//     always {
+//         all disj n1, n2: Node | {
 
-            // one of them must be the sender and the other the receiver
-            senderAndReceiver[n1,n2]
+//             // one of them must be the sender and the other the receiver
+//             senderAndReceiver[n1,n2]
 
-            // possible actions to take
-            // three step handshake, send info or close connection
-            threeStepHandshake[n1, n2] or sendInfo[n1, n2] or closeConnection[n1, n2] or doNothing
+//             // possible actions to take
+//             // three step handshake, send info or close connection
+//             threeStepHandshake[n1, n2] or sendInfo[n1, n2] or closeConnection[n1, n2] or doNothing
 
-            // if a connection is ever opened then it must close eventually
-            // (connectionOpened could be like a flag)
-            (connectionOpened[n1] and connectionOpened[n2]) implies eventually {closeConnection[n1, n2]}
-        }
-    }
-} for 2 Node
-
-
+//             // if a connection is ever opened then it must close eventually
+//             // (connectionOpened could be like a flag)
+//             (connectionOpened[n1] and connectionOpened[n2]) implies eventually {closeConnection[n1, n2]}
+//         }
+//     }
+// } for 2 Node
 
 
-run {
-    // traces for ...
-}
+
+
+// run {
+//     // traces for ...
+// }
 
 
 
