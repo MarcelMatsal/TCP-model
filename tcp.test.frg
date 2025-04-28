@@ -320,10 +320,156 @@ test suite for init {
 }
 
 
-// test suite for Open {
+test suite for Open {
+
+    // SAT CASES
+    // making sure the prestates are correct
+    test expect {
+        validPrestates: {
+            all disj n1, n2: Node | {
+                Open[n1,n2]
+                n1.curState = Closed
+                n2.curState = Closed
+                no n1.connectedNode
+                no n2.connectedNode
+                // The nodes cannot have any packets in their buffers.
+                no n1.receiveBuffer
+                no n2.sendBuffer
+                no n1.receiveBuffer
+                no n1.sendBuffer
+            }
+        } is sat
+    } 
+    // making sure the poststates are correct
+    test expect {
+        validPostStates: {
+            all disj n1, n2: Node | {
+                Open[n1,n2] implies {
+                    some packet: Packet | {
+                        packet.src = n1
+                        packet.dst = n2
+                        packet.pSeqNum = n1.seqNum'
+                        packet.pAckNum = n1.ackNum'
+                        n1.sendBuffer' = packet
+                    }
+                    n1.connectedNode' = n2
+                    n1.curState' = SynSent
+                    n1.ackNum' = 0
+                }
+            }
+        } is sat
+    } 
+    // making sure they are connected
+     test expect {
+        validConnectionCreated: {
+            all disj n1, n2: Node | {
+                Open[n1,n2] implies {
+                    n1.connectedNode' = n2
+                    n2.connectedNode' = n1
+                }
+            }
+        } is sat
+    }    
+    test expect {
+        validConnectionCreated2: {
+            all disj n1, n2: Node | {
+                Open[n1,n2] implies {
+                    n2.connectedNode' = n1
+                }
+            }
+        } is sat
+    }    
 
 
-// }
+    // UNSAT CASES
+    // there is something in the buffers before
+    test expect {
+        invalidPreBuffer: {
+            some disj n1, n2: Node | {
+                Open[n1,n2]
+                n1.curState = Closed
+                n2.curState = Closed
+                no n1.connectedNode
+                no n2.connectedNode
+                // The nodes cannot have any packets in their buffers.
+                some p: Packet | {
+                    p in n1.receiveBuffer
+                }
+                no n2.sendBuffer
+                no n1.receiveBuffer
+                no n1.sendBuffer
+            }
+        } is unsat
+    } 
+    test expect {
+        invalidPreBuffer2: {
+            some disj n1, n2: Node | {
+                Open[n1,n2]
+                n1.curState = Closed
+                n2.curState = Closed
+                no n1.connectedNode
+                no n2.connectedNode
+                // The nodes cannot have any packets in their buffers.
+                some p: Packet | {
+                    p in n2.sendBuffer
+                }
+                no n1.receiveBuffer
+                no n1.sendBuffer
+            }
+        } is unsat
+    }
+    test expect {
+        invalidPreBuffer3: {
+            some disj n1, n2: Node | {
+                Open[n1,n2]
+                n1.curState = Closed
+                n2.curState = Closed
+                no n1.connectedNode
+                no n2.connectedNode
+                // The nodes cannot have any packets in their buffers.
+                some p: Packet | {
+                    p in n1.sendBuffer
+                }
+                no n1.receiveBuffer
+                no n2.sendBuffer
+            }
+        } is unsat
+    }  
+
+    // invalid prestate (not closed)
+    test expect {
+        invalidPrestate: {
+            validState
+            some disj n1, n2: Node | {
+                n1.curState != Closed
+                n2.curState = Closed
+                Open[n1,n2]
+                no n1.connectedNode
+                no n2.connectedNode
+                no n1.receiveBuffer
+                no n2.sendBuffer
+                no n1.receiveBuffer
+                no n1.sendBuffer
+            }
+        } is unsat
+    } 
+    test expect {
+        invalidPrestate2: {
+            validState
+            some disj n1, n2: Node | {
+                n1.curState = Closed
+                n2.curState != Closed
+                Open[n1,n2]
+                no n1.connectedNode
+                no n2.connectedNode
+                no n1.receiveBuffer
+                no n2.sendBuffer
+                no n1.receiveBuffer
+                no n1.sendBuffer
+            }
+        } is unsat
+    } 
+}
 
 
 

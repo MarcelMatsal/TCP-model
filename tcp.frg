@@ -133,6 +133,7 @@ pred Connected[node1: Node, node2: Node] {
     node2.connectedNode = node1
 }
 
+
 // Predicate used to open a connection and maintain
 // proper state transitions and constraints.
 pred Open [sender, receiver: Node] {
@@ -141,13 +142,13 @@ pred Open [sender, receiver: Node] {
     receiver.curState = Closed
 
     // The nodes cannot be connected to anything.
-    sender.connectedNode = none
-    receiver.connectedNode = none
+    no sender.connectedNode 
+    no receiver.connectedNode
     // The nodes cannot have any packets in their buffers.
-    sender.receiveBuffer = none
-    sender.sendBuffer = none
-    receiver.receiveBuffer = none
-    receiver.sendBuffer = none
+    no sender.receiveBuffer
+    no sender.sendBuffer
+    no receiver.receiveBuffer
+    no receiver.sendBuffer
 
     // The sender will initiate a connection
     some i : Int | {
@@ -161,8 +162,8 @@ pred Open [sender, receiver: Node] {
         one packet: Packet | {
             packet.src = sender
             packet.dst = receiver
-            packet.seqNum = sender.seqNum'
-            packet.ackNum = sender.ackNum'
+            packet.pSeqNum = sender.seqNum'
+            packet.pAckNum = sender.ackNum'
             sender.sendBuffer' = packet
         }
     }
@@ -233,7 +234,7 @@ pred Receive [node: Node] {
 
 pred Close[sender, receiver: Node] {
     // They must both be established and connected:
-    connected[sender, receiver]
+    Connected[sender, receiver]
 
     // The sender will initiate the close connection.
     one packet: Packet | {
