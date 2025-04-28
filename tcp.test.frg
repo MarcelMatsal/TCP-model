@@ -13,10 +13,6 @@ properties of the overall system.
 
 /* PREDICATE TESTS */
 test suite for validState {
-
-
-
-
     // SAT CASES
     // a connected node has something pointed to it and it points back to that
     test expect {
@@ -472,21 +468,278 @@ test suite for Open {
 }
 
 
+test suite for userSend {
+
+    // SAT TESTS
+
+    // checking to make sure that it can use radom valid values for its prestates
+    test expect {
+        validUSendPre: {
+            all sender: Node | {
+                sender.seqNum = 2
+                sender.ackNum = 0
+                sender.send_lbw = 1
+                userSend[sender]
+                sender.curState = Established
+            }
+        } is sat
+    }  
+
+    // checking to make sure values get correctly added to the proper amount
+    test expect {
+        validUSendPost: {
+            all sender: Node | {
+                sender.seqNum = 2
+                sender.ackNum = 0
+                sender.send_lbw = 1
+                userSend[sender]
+                sender.curState = Established
+                sender.seqNum' = 3
+                sender.ackNum' = 0
+                sender.send_lbw' = 2
+            }
+        } is sat
+    }  
+
+    // checking to make sure packet generated properly
+    test expect {
+        validPacketFill: {
+            all sender: Node | {
+                sender.seqNum = 2
+                sender.ackNum = 0
+                sender.send_lbw = 1
+                userSend[sender]
+                sender.curState = Established
+                sender.seqNum' = 3
+                sender.ackNum' = 0
+                sender.send_lbw' = 2
+                some p: Packet | {
+                    p.src = sender
+                    p.dst = sender.connectedNode
+                    p.pSeqNum = 3
+                    p.pAckNum = 0
+                    sender.sendBuffer' = sender.sendBuffer + p
+                }
+            }
+        } is sat
+    }
+
+    // size of send buffer should grow
+    test expect {
+        validPacketFill2: {
+            all sender: Node | {
+                userSend[sender]
+                #{sender.sendBuffer'} > #{sender.sendBuffer}
+            }
+        } is sat
+    }
+
+    // UNSAT TESTS
+
+    // size of the send buffer decreases
+    test expect {
+        invalidSendBuffer: {
+            some sender: Node | {
+                userSend[sender]
+                #{sender.sendBuffer'} < #{sender.sendBuffer}
+            }
+        } is unsat
+    }  
+
+    // sender was not established beforehand
+    test expect {
+        invalidUSendState: {
+            some sender: Node | {
+                userSend[sender]
+                sender.curState != Established
+            }
+        } is unsat
+    }  
+
+    // the math for the pre and post states is wrong
+    test expect {
+        wrongMath: {
+            some sender: Node | {
+                sender.seqNum = 2
+                sender.ackNum = 0
+                sender.send_lbw = 1
+                userSend[sender]
+                sender.curState = Established
+                sender.seqNum' = 2
+                sender.ackNum' = 0
+                sender.send_lbw' = 2
+            }
+        } is unsat
+    } 
+
+    test expect {
+        wrongMath2: {
+            some sender: Node | {
+                sender.seqNum = 2
+                sender.ackNum = 0
+                sender.send_lbw = 1
+                userSend[sender]
+                sender.curState = Established
+                sender.seqNum' = 3
+                sender.ackNum' != 0
+                sender.send_lbw' = 2
+            }
+        } is unsat
+    }  
+    test expect {
+        wrongMath3: {
+            some sender: Node | {
+                sender.seqNum = 2
+                sender.ackNum = 0
+                sender.send_lbw = 1
+                userSend[sender]
+                sender.curState = Established
+                sender.seqNum' = 3
+                sender.ackNum' = 0
+                sender.send_lbw' = 4
+            }
+        } is unsat
+    }   
+
+    // incorrect packet setup
+
+    // source of packet is not the sender
+    test expect {
+        invalidPacketFill: {
+            some sender: Node | {
+                sender.seqNum = 2
+                sender.ackNum = 0
+                sender.send_lbw = 1
+                userSend[sender]
+                sender.curState = Established
+                sender.seqNum' = 3
+                sender.ackNum' = 0
+                sender.send_lbw' = 2
+                one p: Packet | {
+                    some n2: Node | {
+                        n2 != sender
+                        p.src = n2
+                    }
+                    p.dst = sender.connectedNode
+                    p.pSeqNum = 3
+                    p.pAckNum = 0
+                    sender.sendBuffer' = sender.sendBuffer + p
+                }
+            }
+        } is unsat
+    }
+    // wrong destination for the packet
+    test expect {
+        invalidPacket2: {
+            some sender: Node | {
+                sender.seqNum = 2
+                sender.ackNum = 0
+                sender.send_lbw = 1
+                userSend[sender]
+                sender.curState = Established
+                sender.seqNum' = 3
+                sender.ackNum' = 0
+                sender.send_lbw' = 2
+                one p: Packet | {
+                    some n2: Node | {
+                        n2 != sender
+                        p.dst = n2.connectedNode
+                    }
+                    p.src = sender
+                    p.pSeqNum = 3
+                    p.pAckNum = 0
+                    sender.sendBuffer' = sender.sendBuffer + p
+                }
+            }
+        } is unsat
+    }  
+    // wrong buffer 
+    test expect {
+        invalidPacket3: {
+            some sender: Node | {
+                sender.seqNum = 2
+                sender.ackNum = 0
+                sender.send_lbw = 1
+                userSend[sender]
+                sender.curState = Established
+                sender.seqNum' = 3
+                sender.ackNum' = 0
+                sender.send_lbw' = 2
+                one p: Packet | {
+                    some n2: Node | {
+                        n2 != sender
+                        sender.sendBuffer' = n2.sendBuffer + p
+                    }
+                    p.dst = sender.connectedNode
+                    p.src = sender
+                    p.pSeqNum = 3
+                    p.pAckNum = 0
+                }
+            }
+        } is unsat
+    }   
+
+    // wrong numbers
+    test expect {
+        invalidPacket4: {
+            some sender: Node | {
+                sender.seqNum = 2
+                sender.ackNum = 0
+                sender.send_lbw = 1
+                userSend[sender]
+                sender.curState = Established
+                sender.seqNum' = 3
+                sender.ackNum' = 0
+                sender.send_lbw' = 2
+                one p: Packet | {
+                    p.dst = sender.connectedNode
+                    p.src = sender
+                    sender.sendBuffer' = sender.sendBuffer + p
+                    p.pSeqNum != 3
+                    p.pAckNum = 0
+                }
+            }
+        } is unsat
+    }  
+
+    test expect {
+        invalidPacket5: {
+            some sender: Node | {
+                sender.seqNum = 2
+                sender.ackNum = 0
+                sender.send_lbw = 1
+                userSend[sender]
+                sender.curState = Established
+                sender.seqNum' = 3
+                sender.ackNum' = 0
+                sender.send_lbw' = 2
+                one p: Packet | {
+                    p.dst = sender.connectedNode
+                    p.src = sender
+                    sender.sendBuffer' = sender.sendBuffer + p
+                    p.pSeqNum = 3
+                    p.pAckNum != 0
+                }
+            }
+        } is unsat
+    }                  
+
+}
 
 
-// test suite for userSend {
-
-
-// }
 
 
 
+test suite for Send {
+
+    // SAT TESTS
 
 
-// test suite for Send {
 
 
-// }
+    // UNSAT TESTS
+
+}
 
 
 // test suite for Transfer {

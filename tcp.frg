@@ -182,8 +182,8 @@ pred userSend[sender: Node] {
     one packet: Packet | {
         packet.src = sender
         packet.dst = sender.connectedNode
-        packet.seqNum = sender.seqNum'
-        packet.ackNum = sender.ackNum'
+        packet.pSeqNum = sender.seqNum'
+        packet.pAckNum = sender.ackNum'
         sender.sendBuffer' = sender.sendBuffer + packet
     }
 }
@@ -306,6 +306,8 @@ pred senderAndReceiver[n1, n2: Node]{
 
 pred isSender[n: Node] {
     // predicate that defines a node to be the one that sends the data
+
+    
 
 
 
