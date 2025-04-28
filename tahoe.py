@@ -83,46 +83,37 @@ class Tahoe(object):
     def verify_congestion(self, answer):
        pass
 
+    
 def produce_graph(tahoe_model, ans):
-    # """Produce a graph of the congestion control algorithm"""
-    # plt.xlabel('RTT (Round Trip Time)')
-    # plt.ylabel('Congestion Window Size')
-    # plt.title('Tahoe Congestion Control Algorithm')
-
-    # # We make use of the model and answer to plot the graph.
-
-    # cwnd_vals = [ans.evaluate(tahoe_model.cwnd[t]).as_long() for t in range(len(tahoe_model.cwnd))]
-    # rtt_vals = [ans.evaluate(tahoe_model.rtt[t]).as_long() for t in range(len(tahoe_model.rtt))]
-
-    # plt.plot(rtt_vals, cwnd_vals, marker='o')
-
-    # plt.show()
-    """Produce a graph of the congestion control algorithm with values of cwnd, ack, and ssthresh"""
+    """Produce a graph of the congestion control algorithm, with phases colored."""
     plt.xlabel('RTT (Round Trip Time)')
     plt.ylabel('Congestion Window Size')
     plt.title('Tahoe Congestion Control Algorithm')
 
-    # We make use of the model and answer to plot the graph.
+    # We extract values from the model
     cwnd_vals = [ans.evaluate(tahoe_model.cwnd[t]).as_long() for t in range(len(tahoe_model.cwnd))]
     rtt_vals = [ans.evaluate(tahoe_model.rtt[t]).as_long() for t in range(len(tahoe_model.rtt))]
     ssthresh_vals = [ans.evaluate(tahoe_model.ssthresh[t]).as_long() for t in range(len(tahoe_model.ssthresh))]
     ack_vals = [ans.evaluate(tahoe_model.acks[t]).as_long() for t in range(len(tahoe_model.acks))]
 
-    # Plot congestion window values.
-    plt.plot(rtt_vals, cwnd_vals, marker='o', label='cwnd')
+    for t in range(1, len(rtt_vals)):
+        # Determine the phase
+        if ack_vals[t-1] in [AckType.TIMEOUT_ACK, AckType.DUPLICATE_ACK]:
+            color = 'red'  # Recovery (after timeout or dup ACK)
+        elif cwnd_vals[t-1] < ssthresh_vals[t-1]:
+            color = 'green'  # Slow Start
+        else:
+            color = 'orange'  # Congestion Avoidance
 
-    # Annotate each point with its cwnd, ack, and ssthresh values.
-    for t in range(len(rtt_vals)):
-        plt.annotate(
-            f'{cwnd_vals[t]} (ack: {ack_vals[t]}, ssthresh: {ssthresh_vals[t]})',
-            (rtt_vals[t], cwnd_vals[t]),
-            textcoords="offset points",
-            xytext=(0, 5),
-            ha='center',
-            fontsize=8
+        plt.plot(
+            [rtt_vals[t-1], rtt_vals[t]],
+            [cwnd_vals[t-1], cwnd_vals[t]],
+            color=color,
+            marker='o'
         )
 
     plt.show()
+
 
 if __name__ == "__main__":
     acks = [
@@ -139,11 +130,16 @@ if __name__ == "__main__":
         AckType.NORMAL_ACK,
         AckType.NORMAL_ACK,
         AckType.NORMAL_ACK,
-        AckType.TIMEOUT_ACK,
+        AckType.NORMAL_ACK,
+        AckType.NORMAL_ACK,
+        AckType.NORMAL_ACK,
+        AckType.NORMAL_ACK,
+        AckType.NORMAL_ACK,
+        AckType.NORMAL_ACK,
         AckType.NORMAL_ACK,
     ]
 
-    tahoe = Tahoe(15, acks)
+    tahoe = Tahoe(20, acks)
     
     # We create a congestion solution for the acks received.
     ans = tahoe.solve_congestion()
