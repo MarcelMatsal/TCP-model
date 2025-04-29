@@ -4,14 +4,14 @@
 
 abstract sig State {}
 
-sig Closed extends State {}
-sig SynReceived extends State {}
-sig SynSent extends State {}
-sig Established extends State {}
-sig FinWait1 extends State {}
-sig FinWait2 extends State {}
-sig TimeWait extends State {}
-sig CloseWait extends State {}
+one sig Closed extends State {}
+one sig SynReceived extends State {}
+one sig SynSent extends State {}
+one sig Established extends State {}
+one sig FinWait1 extends State {}
+one sig FinWait2 extends State {}
+one sig TimeWait extends State {}
+one sig CloseWait extends State {}
 
 // A node in the system.
 sig Node {
@@ -21,22 +21,22 @@ sig Node {
     var sendBuffer: set Packet,
     var seqNum: one Int,
     var ackNum: one Int,
-    var connectedNode: lone Node,
+    var connectedNode: lone Node
 
-    var send_next: one Int,
-    var send_una: one Int,
-    var send_lbw: one Int,
+    // var send_next: one Int,
+    // var send_una: one Int,
+    // var send_lbw: one Int,
 
-    var recv_next: one Int,
-    var recv_lbr: one Int
+    // var recv_next: one Int,
+    // var recv_lbr: one Int
 }
 
 // A packet in the system.
 sig Packet {
-    src: one Node,
-    dst: one Node,
-    pSeqNum: one Int,
-    pAckNum: one Int
+    var src: lone Node,
+    var dst: lone Node,
+    var pSeqNum: lone Int,
+    var pAckNum: lone Int
 }
 
 // The network of the system (holding in-transit packets).
@@ -54,7 +54,7 @@ pred validState {
 
     // For every packet in a network, the source and destination nodes are distinct
     all p: Packet | {
-        p.src != p.dst
+        p.src != none implies p.src != p.dst
     }
 
     // Any node with a connected node has to be connected back:
@@ -84,6 +84,14 @@ pred validState {
     // If all nodes are closed, then the network should be empty
     all n: Node | {
         n.curState = Closed implies Network.packets = none
+    }
+
+    // Packet values shouldn't change
+    all p: Packet | {
+        p.pSeqNum != none implies (p.pSeqNum' = p.pSeqNum)
+        p.pAckNum != none implies (p.pAckNum' = p.pAckNum)
+        p.src != none implies (p.src' = p.src)
+        p.dst != none implies (p.dst' = p.dst)
     }
 }
 
@@ -118,6 +126,13 @@ pred init {
         n.receiveBuffer = none
         n.sendBuffer = none
         n.connectedNode = none
+    }
+    
+    all packet : Packet | {
+        packet.src = none
+        packet.dst = none
+        packet.pSeqNum = none
+        packet.pAckNum = none
     }
 }
 
@@ -187,7 +202,7 @@ pred userSend[sender: Node] {
     sender.curState = Established
     sender.seqNum' = sender.seqNum + 1
     sender.ackNum' = sender.ackNum
-    sender.send_lbw' = sender.send_lbw + 1
+    // sender.send_lbw' = sender.send_lbw + 1
 
     one packet: Packet | {
         packet.src = sender
@@ -203,7 +218,7 @@ pred send[sender: Node] {
         Network.packets' = Network.packets + packet
         // not sure if this works?
         // this would only work if there is only One packet within the sendBuffer I think
-        sender.send_next' = packet.pSeqNum
+        // sender.send_next' = packet.pSeqNum
     }
     #{sender.sendBuffer'} = 0
 }
@@ -352,11 +367,13 @@ pred Close[sender, receiver: Node] {
 
 // defines the valid moves that the nodes can do
 pred moves[sender, receiver: Node]{
-    // I am thinking this should be kinda like a bunch of implications based on the current states of the nodes
-    ((sender.curState = Closed and receiver.curState = Closed) implies Open[sender, receiver]) 
+    Open[sender, receiver]
+
+    // // I am thinking this should be kinda like a bunch of implications based on the current states of the nodes
+    // ((sender.curState = Closed and receiver.curState = Closed) implies Open[sender, receiver]) 
     
-    // should be an OR of the possible moves
-    // doNothing for Lasso?
+    // // should be an OR of the possible moves
+    // // doNothing for Lasso?
 
 }
 
@@ -369,29 +386,32 @@ pred doNothing {
         n.seqNum' = n.seqNum
         n.ackNum' = n.ackNum
         n.connectedNode' = n.connectedNode
-        n.send_next' =  n.send_next
-        n.send_una' = n.send_una
-        n.send_lbw' = n.send_lbw
-        n.recv_next' = n.recv_next
-        n.recv_lbr' = n.recv_lbr
+        // n.send_next' =  n.send_next
+        // n.send_una' = n.send_una
+        // n.send_lbw' = n.send_lbw
+        // n.recv_next' = n.recv_next
+        // n.recv_lbr' = n.recv_lbr
     }
+    // all p : Packet | {
+    //     p.src' = p.src
+    //     p.dst' = p.dst
+    //     p.pSeqNum' = p.pSeqNum
+    //     p.pAckNum' = p.pAckNum
+    // }
 }
 
 pred traces {
     init
+    always {validState}
+
     all disj sender, receiver: Node | {
-        always {
-            validState
-            moves[sender,receiver]
-        }
+        eventually Open[sender, receiver]
     }
-
-
 }
 
 run {
     traces
-} for exactly 2 Node, 4 Packet
+} for exactly 2 Node, exactly 4 Packet
 
 pred senderAndReceiver[n1, n2: Node]{
     // temporally the sneder and the reciever should only be one and they should not change roles throughout the trace
