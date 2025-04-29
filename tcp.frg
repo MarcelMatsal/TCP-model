@@ -260,7 +260,6 @@ pred Close[sender, receiver: Node] {
         receiver.curState' = CloseWait // Is this weird because it will never actually happen?
     }
 
-
     // They are both closed:
     sender.curState' = Closed
     receiver.curState' = Closed
@@ -278,8 +277,11 @@ pred Close[sender, receiver: Node] {
 // defines the valid moves that the nodes can do
 pred moves[sender, receiver: Node]{
     // I am thinking this should be kinda like a bunch of implications based on the current states of the nodes
+    ((sender.curState = Closed and receiver.curState = Closed) implies Open[sender, receiver]) 
+    
     // should be an OR of the possible moves
     // doNothing for Lasso?
+
 }
 
 pred doNothing {
@@ -301,12 +303,19 @@ pred doNothing {
 
 pred traces {
     init
+    all disj sender, receiver: Node | {
+        always {
+            validState
+            moves[sender,receiver]
+        }
+    }
+
 
 }
 
-// run {
-//     traces
-// } for exactly 2 Node, 4 Packet
+run {
+    traces
+} for exactly 2 Node, 4 Packet
 
 pred senderAndReceiver[n1, n2: Node]{
     // temporally the sneder and the reciever should only be one and they should not change roles throughout the trace
