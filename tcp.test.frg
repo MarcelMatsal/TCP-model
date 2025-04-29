@@ -806,24 +806,35 @@ test suite for Send {
 }
 
 
-// test suite for Transfer {
+test suite for Transfer {
+
+    // SAT Condition
 
 
-// }
+    // UNSAT Conditions
 
-
-
-// test suite for Receive {
-
-
-// }
+}
 
 
 
-// test suite for Close {
+test suite for Receive {
+
+    // SAT Condition
 
 
-// }
+    // UNSAT Conditions
+
+}
+
+
+
+test suite for Close {
+    // SAT Condition
+
+
+    // UNSAT Conditions
+
+}
 
 
 
@@ -835,3 +846,18 @@ test suite for Send {
 
 
 // /* TRACES TESTS */
+
+
+test suite for Trace {
+
+
+    // always open implies eventually close
+
+
+
+    // things about TCP that are not the case for UDP
+
+
+
+
+}

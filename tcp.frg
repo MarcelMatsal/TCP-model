@@ -241,8 +241,8 @@ pred Close[sender, receiver: Node] {
     one packet: Packet | {
         packet.src = sender
         packet.dst = receiver
-        packet.seqNum = sender.seqNum + 1
-        packet.ackNum = sender.ackNum
+        packet.pSeqNum = sender.seqNum + 1
+        packet.pAckNum = sender.ackNum
         sender.sendBuffer' = sender.sendBuffer + packet
 
         // The sender will go into the FinWait1 state.
@@ -252,8 +252,8 @@ pred Close[sender, receiver: Node] {
     one ackPacket: Packet | {
         ackPacket.src = receiver
         ackPacket.dst = sender
-        ackPacket.seqNum = receiver.seqNum + 1
-        ackPacket.ackNum = sender.seqNum + 1
+        ackPacket.pSeqNum = receiver.seqNum + 1
+        ackPacket.pAckNum = sender.seqNum + 1
         receiver.sendBuffer' = receiver.sendBuffer + ackPacket
 
         // The receiver will go into the CloseWait state.
@@ -274,10 +274,39 @@ pred Close[sender, receiver: Node] {
     receiver.sendBuffer' = none
 }
 
+
+// defines the valid moves that the nodes can do
+pred moves[sender, receiver: Node]{
+    // I am thinking this should be kinda like a bunch of implications based on the current states of the nodes
+    // should be an OR of the possible moves
+    // doNothing for Lasso?
+}
+
+pred doNothing {
+    // predicate that allows for lasso traces and has the model do nothin 
+    all n: Node | {
+        n.curState' = n.curState
+        n.receiveBuffer' = n.receiveBuffer
+        n.sendBuffer' =  n.sendBuffer
+        n.seqNum' = n.seqNum
+        n.ackNum' = n.ackNum
+        n.connectedNode' = n.connectedNode
+        n.send_next' =  n.send_next
+        n.send_una' = n.send_una
+        n.send_lbw' = n.send_lbw
+        n.recv_next' = n.recv_next
+        n.recv_lbr' = n.recv_lbr
+    }
+}
+
 pred traces {
     init
-    validState
+
 }
+
+// run {
+//     traces
+// } for exactly 2 Node, 4 Packet
 
 pred senderAndReceiver[n1, n2: Node]{
     // temporally the sneder and the reciever should only be one and they should not change roles throughout the trace
