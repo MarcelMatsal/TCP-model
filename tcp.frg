@@ -192,7 +192,8 @@ pred send[sender: Node] {
     all packet: sender.sendBuffer | {
         Network.packets' = Network.packets + packet
         // not sure if this works?
-        sender.send_next' = packet.seqNum
+        // this would only work if there is only One packet within the sendBuffer I think
+        sender.send_next' = packet.pSeqNum
     }
     #{sender.sendBuffer'} = 0
 }
@@ -275,6 +276,7 @@ pred Close[sender, receiver: Node] {
 
 pred traces {
     init
+    validState
 }
 
 pred senderAndReceiver[n1, n2: Node]{

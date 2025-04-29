@@ -28,7 +28,6 @@ test suite for validState {
         } is sat
     }
 
-
     // being Established means you have a connection
     test expect {
         establishedMeansConnect: {
@@ -701,7 +700,6 @@ test suite for userSend {
             }
         } is unsat
     }  
-
     test expect {
         invalidPacket5: {
             some sender: Node | {
@@ -726,19 +724,85 @@ test suite for userSend {
 
 }
 
-
-
-
-
 test suite for Send {
 
     // SAT TESTS
+    // the size of the packets on the network should increase
+    test expect {
+        validNetworkIncrease: {
+            some sender: Node | {
+                send[sender]
+            }
+            #{Network.packets'} > #{Network.packets}
+        } is sat
+    }
 
+    // the packets from the node that sends should be in the network at the next step
+    test expect {
+        correctPacketsInNetwork: {
+            some sender: Node | {
+                send[sender]
+                all packet: sender.sendBuffer | {
+                    packet in Network.packets'
+                    not packet in Network.packets
+                }
+            }
+            #{Network.packets'} > #{Network.packets}
+        } is sat
+    }
 
-
+    // the send buffer becomes empty of the sender
+    test expect {
+        emptySendBuffer: {
+            all sender: Node | {
+                send[sender] implies #{sender.sendBuffer'} = 0
+            }
+        } is sat
+    }
 
     // UNSAT TESTS
 
+    // the send buffer does not empty
+    test expect {
+        nonemptySendBuffer: {
+            some sender: Node | {
+                send[sender]
+                #{sender.sendBuffer'} != 0
+            }
+        } is unsat
+    }
+    test expect {
+        nonemptySendBuffer2: {
+            some sender: Node | {
+                send[sender]
+                some packet: Packet | {
+                    packet in sender.sendBuffer'
+                }
+            }
+        } is unsat
+    }
+
+    // not all the right packets go in the network
+    test expect {
+        incorrectPacketsInNetwork: {
+            some sender: Node | {
+                send[sender]
+                some packet: sender.sendBuffer | {
+                    not packet in Network.packets'
+                }
+            }
+        } is unsat
+    }
+    // size of packets in network decreases
+    test expect {
+        incorrectPacketsInNetwork2: {
+            some sender: Node | {
+                #{sender.sendBuffer} > 0
+                send[sender]
+            }
+            #{Network.packets'} < #{Network.packets}
+        } is unsat
+    }
 }
 
 
