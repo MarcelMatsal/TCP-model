@@ -136,7 +136,7 @@ pred Connected[node1: Node, node2: Node] {
 
 // Predicate used to open a connection and maintain
 // proper state transitions and constraints.
-pred Open [sender, receiver: Node] {
+pred Open[sender, receiver: Node] {
     // Closed states must be maintained.
     sender.curState = Closed
     receiver.curState = Closed
@@ -155,7 +155,8 @@ pred Open [sender, receiver: Node] {
         i >= 0
         sender.curState' = SynSent
         sender.seqNum' = i
-        sender.ackNum' = 0
+        // sender.ackNum' = 0
+        sender.send_next' = i + 1
         sender.connectedNode' = receiver
 
         // We send the SYN packet to the receiver
@@ -163,7 +164,7 @@ pred Open [sender, receiver: Node] {
             packet.src = sender
             packet.dst = receiver
             packet.pSeqNum = sender.seqNum'
-            packet.pAckNum = sender.ackNum'
+            packet.pAckNum = 0
             sender.sendBuffer' = packet
         }
     }
@@ -215,12 +216,54 @@ pred Receive [node: Node] {
         // closed -> make sure the packet is a syn packet
         // go into syn received state
         // send second step of handshake
+        node.curState = Closed implies {
+            node.curState' = SynReceived
+            node.recv_next' = packet.pSeqNum + 1
+            node.ackNum' = packet.pSeqNum
+            
+            node.connectedNode' = packet.src
+
+            some i : Int | {
+                i >= 0
+                node.seqNum' = i
+                node.send_next' = i + 1
+            }
+
+            // send back a syn ack packet
+            one ackPacket: Packet | {
+                ackPacket.src = node
+                ackPacket.dst = packet.src
+                ackPacket.pSeqNum = node.seqNum'
+                ackPacket.pAckNum = node.recv_next'
+                node.sendBuffer' = node.sendBuffer + ackPacket
+            }
+        }
         
 
         // syn received -> go into established state
 
+        node.curState = SynReceived implies {
+            node.curState' = Established
+            // node.recv_next' = packet.pSeqNum + 1
+            // node.ackNum' = packet.pSeqNum
+        }
+
         // syn sent -> send back last part of handshake
         // go into established state
+
+        node.curState = SynSent implies {
+            node.curState' = Established
+            node.ackNum' = packet.pSeqNum
+            node.recv_next' = packet.pSeqNum + 1
+
+            one ackPacket: Packet | {
+                ackPacket.src = node
+                ackPacket.dst = packet.src
+                ackPacket.pSeqNum = node.send_next'
+                ackPacket.pAckNum = node.recv_next'
+                node.sendBuffer' = node.sendBuffer + ackPacket
+            }
+        }
 
         // established
         //  make sure packet has ack flag
@@ -230,6 +273,30 @@ pred Receive [node: Node] {
         //    receive data
         //    increment rcv_next (next byte to be received)
         // send back ack (send_next, rcv_next)
+
+        node.curState = Established implies {
+            // node.curState' = Established
+            // node.ackNum' = packet.pSeqNum
+            // node.recv_next' = packet.pSeqNum + 1
+
+            // if packet.pAckNum > node.send_una and packet.pAckNum <= node.send_next
+            //     node.send_una' = packet.pAckNum
+
+            // if packet.pSeqNum <= node.recv_next
+            //     node.receiveBuffer' = node.receiveBuffer + packet
+            //     node.recv_next' = packet.pSeqNum + 1
+
+
+            node.recv_next' = packet.pSeqNum + 1
+
+            one ackPacket: Packet | {
+                ackPacket.src = node
+                ackPacket.dst = packet.src
+                ackPacket.pSeqNum = node.send_next'
+                ackPacket.pAckNum = node.recv_next'
+                node.sendBuffer' = node.sendBuffer + ackPacket
+            }
+        }
     }
 }
 
