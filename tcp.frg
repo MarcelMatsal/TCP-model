@@ -154,8 +154,7 @@ pred Open[sender, receiver: Node] {
     some i : Int | {
         i >= 0
         sender.curState' = SynSent
-        sender.seqNum' = i
-        // sender.ackNum' = 0
+        sender.seqNum' = i // sender.ackNum' = 0
         sender.send_next' = i + 1
         sender.connectedNode' = receiver
 
@@ -168,6 +167,16 @@ pred Open[sender, receiver: Node] {
             sender.sendBuffer' = packet
         }
     }
+
+    receiver.curState' = receiver.curState
+    receiver.connectedNode' = receiver.connectedNode
+    receiver.seqNum' = receiver.seqNum
+    receiver.ackNum' = receiver.ackNum
+    receiver.send_next' = receiver.send_next
+    receiver.recv_next' = receiver.recv_next
+    // receiver.send_una' = receiver.send_una
+    // receiver.send_lbw' = receiver.send_lbw
+    // receiver.recv_lbr' = receiver.recv_lbr
 }
 
 // We send packet through a connection.
