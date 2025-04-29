@@ -21,7 +21,7 @@ sig Node {
     var sendBuffer: set Packet,
     var seqNum: one Int,
     var ackNum: one Int,
-    var connectedNode: lone Node
+    var connectedNode: lone Node,
 
     var send_next: one Int,
     // var send_una: one Int,
@@ -184,7 +184,7 @@ pred Open[sender, receiver: Node] {
     }
 
     receiver.curState' = receiver.curState
-    receiver.connectedNode' = receiver.connectedNode
+    receiver.connectedNode' = sender
     receiver.seqNum' = receiver.seqNum
     receiver.ackNum' = receiver.ackNum
     receiver.send_next' = receiver.send_next
@@ -192,6 +192,8 @@ pred Open[sender, receiver: Node] {
     // receiver.send_una' = receiver.send_una
     // receiver.send_lbw' = receiver.send_lbw
     // receiver.recv_lbr' = receiver.recv_lbr
+
+    eventually Send[sender]
 }
 
 // We send packet through a connection.
@@ -213,14 +215,19 @@ pred userSend[sender: Node] {
     }
 }
 
-pred send[sender: Node] {
+pred Send[sender: Node] {
     all packet: sender.sendBuffer | {
         Network.packets' = Network.packets + packet
         // not sure if this works?
         // this would only work if there is only One packet within the sendBuffer I think
         // sender.send_next' = packet.pSeqNum
     }
+    // The connections should remain the same
+    sender.connectedNode' = sender.connectedNode
+    sender.connectedNode.connectedNode' = sender
+    
     #{sender.sendBuffer'} = 0
+    eventually Transfer
 }
 
 // Predicate that transfers packets from the network to the destination node's receive buffer.
@@ -367,8 +374,7 @@ pred Close[sender, receiver: Node] {
 
 // defines the valid moves that the nodes can do
 pred moves[sender, receiver: Node]{
-    Open[sender, receiver]
-
+    (Open[sender, receiver] or Receive[sender] or Transfer or Send[sender])
     // // I am thinking this should be kinda like a bunch of implications based on the current states of the nodes
     // ((sender.curState = Closed and receiver.curState = Closed) implies Open[sender, receiver]) 
     
@@ -406,6 +412,7 @@ pred traces {
 
     all disj sender, receiver: Node | {
         eventually Open[sender, receiver]
+        // always moves[sender, receiver]
     }
 }
 
