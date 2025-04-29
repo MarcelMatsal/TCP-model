@@ -23,11 +23,11 @@ sig Node {
     var ackNum: one Int,
     var connectedNode: lone Node
 
-    // var send_next: one Int,
+    var send_next: one Int,
     // var send_una: one Int,
     // var send_lbw: one Int,
 
-    // var recv_next: one Int,
+    var recv_next: one Int
     // var recv_lbr: one Int
 }
 
