@@ -186,7 +186,7 @@ pred Open[sender, receiver: Node] {
         i >= 0
         sender.curState' = SynSent
         sender.seqNum' = i // sender.ackNum' = 0
-        sender.send_next' = i + 1
+        sender.send_next' = add[i,1]
         sender.connectedNode' = receiver
 
         // We send the SYN packet to the receiver
@@ -214,7 +214,7 @@ pred userSend[sender: Node] {
     sender.seqNum' = sender.seqNum
     sender.ackNum' = sender.ackNum
     // sender.send_lbw' = sender.send_lbw + 1
-    sender.send_next' = sender.send_next + 1
+    sender.send_next' = add[sender.send_next ,1]
     sender.receiveBuffer' = sender.receiveBuffer
     sender.connectedNode' = sender.connectedNode
     sender.recv_next' = sender.recv_next
@@ -293,12 +293,12 @@ pred Receive[node: Node] {
                 node.curState' = SynReceived
                 node.connectedNode' = srcNode
                 node.ackNum' = packet.pSeqNum
-                node.recv_next' = packet.pSeqNum + 1
+                node.recv_next' = add[packet.pSeqNum, 1]
 
                 some i: Int | {
                     i >= 0
                     node.seqNum' = i
-                    node.send_next' = i + 1
+                    node.send_next' = add[i, 1]
                 }
 
                 one synAck: AckPacket | {
@@ -330,7 +330,7 @@ pred Receive[node: Node] {
             else node.curState = SynSent => {
                 node.curState' = Established
                 node.ackNum' = packet.pSeqNum
-                node.recv_next' = packet.pSeqNum + 1
+                node.recv_next' = add[packet.pSeqNum, 1]
                 node.connectedNode' = node.connectedNode
                 node.seqNum' = node.seqNum
                 node.send_next' = node.send_next
@@ -350,7 +350,7 @@ pred Receive[node: Node] {
             // Established state: Process data, update recv_next and send ACK
             else (node.curState = Established and packet in DataPacket) => {
                 // Only receive if in order
-                node.recv_next' = packet.pSeqNum + 1
+                node.recv_next' = add[packet.pSeqNum,1]
 
                 one dataAck: AckPacket | {
                     dataAck.src' = node
