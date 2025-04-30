@@ -1,5 +1,10 @@
 #lang forge/temporal
 
+option max_tracelength 30
+option min_tracelength 19
+
+option solver Glucose
+
 ---------- Definitions ----------
 
 abstract sig State {}
@@ -231,18 +236,30 @@ pred userSend[sender: Node] {
     // I Think that this should add things to a sendbuffer (for later retransmission),
     // but at this point, just dump all the packets into the network. Right?
 
-    sender.curState = Established
-    sender.seqNum' = sender.seqNum + 1
+    Connected[sender, sender.connectedNode]
+
+    sender.seqNum' = sender.seqNum
     sender.ackNum' = sender.ackNum
     // sender.send_lbw' = sender.send_lbw + 1
+    sender.send_next' = sender.send_next + 1
+    sender.receiveBuffer' = sender.receiveBuffer
+    sender.connectedNode' = sender.connectedNode
+    sender.recv_next' = sender.recv_next
+
+    sender.curState' = sender.curState
 
     one packet: Packet | {
-        packet.src = sender
-        packet.dst = sender.connectedNode
-        packet.pSeqNum = sender.seqNum'
-        packet.pAckNum = sender.ackNum'
+        packet.src' = sender
+        packet.dst' = sender.connectedNode
+        packet.pSeqNum' = sender.send_next'
+        packet.pAckNum' = sender.recv_next'
         sender.sendBuffer' = sender.sendBuffer + packet
     }
+
+    nodeDoesNotChange[sender.connectedNode]
+    Network.packets' = Network.packets
+
+    eventually Send[sender]
 }
 
 pred Send[sender: Node] {
@@ -291,18 +308,19 @@ pred Transfer {
             dest.connectedNode' = dest.connectedNode
             dest.send_next' = dest.send_next
             dest.recv_next' = dest.recv_next
+
+
+            // eventually Receive[dest]
         }
     }
 }
 
 pred Receive[node: Node] {
+    Network.packets' = Network.packets
     some packet: node.receiveBuffer | {
         let srcNode = packet.src | {
 
             node.receiveBuffer' = node.receiveBuffer - packet
-            node.seqNum' = node.seqNum
-            node.send_next' = node.send_next
-            node.connectedNode' = node.connectedNode
 
             // Closed state: Accept SYN and reply with SYN-ACK
             node.curState = Closed => {
@@ -328,11 +346,18 @@ pred Receive[node: Node] {
                         packetDoesNotChange[p]
                     }
                 }
+
             }
 
             // SynReceived state: Receive ACK -> Established
-            else node.curState = SynReceived && packet.pAckNum = node.seqNum + 1 => {
+            else node.curState = SynReceived => {
                 node.curState' = Established
+                node.connectedNode' = node.connectedNode
+                node.ackNum' = node.ackNum
+                node.recv_next' = node.recv_next
+                node.seqNum' = node.seqNum
+                node.send_next' = node.send_next
+                node.sendBuffer' = node.sendBuffer
             }
 
             // SynSent state: Receive SYN-ACK -> Established, send final ACK
@@ -340,6 +365,9 @@ pred Receive[node: Node] {
                 node.curState' = Established
                 node.ackNum' = packet.pSeqNum
                 node.recv_next' = packet.pSeqNum + 1
+                node.connectedNode' = node.connectedNode
+                node.seqNum' = node.seqNum
+                node.send_next' = node.send_next
 
                 one finalAck: Packet | {
                     finalAck.src' = node
@@ -384,29 +412,36 @@ pred Receive[node: Node] {
 pred Close[sender, receiver: Node] {
     // They must both be established and connected:
     Connected[sender, receiver]
+    no Network.packets
+    // no sender.receiveBuffer
+    no receiver.receiveBuffer
+    no sender.sendBuffer
+    // no receiver.sendBuffer
 
     // The sender will initiate the close connection.
-    one packet: Packet | {
-        packet.src = sender
-        packet.dst = receiver
-        packet.pSeqNum = sender.seqNum + 1
-        packet.pAckNum = sender.ackNum
-        sender.sendBuffer' = sender.sendBuffer + packet
+    // one packet: Packet | {
+    //     packet.src = sender
+    //     packet.dst = receiver
+    //     packet.pSeqNum = sender.seqNum + 1
+    //     packet.pAckNum = sender.ackNum
+    //     sender.sendBuffer' = sender.sendBuffer + packet
 
-        // The sender will go into the FinWait1 state.
-        sender.curState' = FinWait1 // Is this weird because it will never actually happen?
-    }
+    //     // The sender will go into the FinWait1 state.
+    //     sender.curState' = FinWait1 // Is this weird because it will never actually happen?
+    // }
 
-    one ackPacket: Packet | {
-        ackPacket.src = receiver
-        ackPacket.dst = sender
-        ackPacket.pSeqNum = receiver.seqNum + 1
-        ackPacket.pAckNum = sender.seqNum + 1
-        receiver.sendBuffer' = receiver.sendBuffer + ackPacket
+    // one ackPacket: Packet | {
+    //     ackPacket.src = receiver
+    //     ackPacket.dst = sender
+    //     ackPacket.pSeqNum = receiver.seqNum + 1
+    //     ackPacket.pAckNum = sender.seqNum + 1
+    //     receiver.sendBuffer' = receiver.sendBuffer + ackPacket
 
-        // The receiver will go into the CloseWait state.
-        receiver.curState' = CloseWait // Is this weird because it will never actually happen?
-    }
+    //     // The receiver will go into the CloseWait state.
+    //     receiver.curState' = CloseWait // Is this weird because it will never actually happen?
+    // }
+
+    // Connected[sender, receiver]
 
     // They are both closed:
     sender.curState' = Closed
@@ -425,18 +460,18 @@ pred dummyClose {
     // This is a dummy close that does not actually do anything
     // It is used to allow for lasso traces
     all n: Node | {
-        n.curState' = Closed
-        n.receiveBuffer' = none
-        n.sendBuffer' = none
-        n.connectedNode' = none
+        n.curState = Closed
+        n.receiveBuffer = none
+        n.sendBuffer = none
+        n.connectedNode = none
     }
-    all p: Packet | {
-        p.src' = none
-        p.dst' = none
-        p.pSeqNum' = none
-        p.pAckNum' = none
-    }
-    Network.packets' = none
+    // all p: Packet | {
+    //     p.src = none
+    //     p.dst = none
+    //     p.pSeqNum = none
+    //     p.pAckNum = none
+    // }
+    Network.packets = none
 }
 
 
@@ -447,7 +482,21 @@ pred moves[sender, receiver: Node]{
     // Transfer or 
     Send[sender] or
     Transfer or
-    doNothing
+    Receive[receiver] or
+    Receive[sender] or
+    Send[receiver] or
+    Close[sender, receiver] or
+    userSend[sender] or
+    userSend[receiver]
+    or doNothing
+
+    all n: Node | {
+        some n.sendBuffer => eventually Send[n]
+    }
+    // all n: Node | {
+    //     some n.receiveBuffer => eventually Receive[n]
+    // }
+    some Network.packets => eventually Transfer
     // // I am thinking this should be kinda like a bunch of implications based on the current states of the nodes
     // ((sender.curState = Closed and receiver.curState = Closed) implies Open[sender, receiver]) 
     
@@ -473,7 +522,12 @@ pred traces {
         eventually Open[sender, receiver]
         eventually Send[sender]
         eventually Transfer
+        eventually Receive[receiver]
         always moves[sender, receiver]
+        // eventually dummyClose
+        eventually Connected[sender, receiver]
+        eventually Close[sender, receiver]
+        eventually userSend[sender]
     }
 }
 
