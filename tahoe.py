@@ -34,7 +34,7 @@ class Tahoe(object):
 
         for t in range(len(self.acks)):
             self.s.add(self.acks[t] == int(acks[t]))  # Connect input list to model
-    
+        
     def solve_congestion(self):
         # We define an initial state
         self.s.add(self.cwnd[0] == 1)
@@ -45,7 +45,7 @@ class Tahoe(object):
         # We loop through time and define the constraints of the Tahoe congestion control algorithm.
         for t in range(1, len(self.rtt)):
             # RTT should scale linearly
-            self.s.add(self.rtt[t] == self.rtt[t-1] + 1)
+            self.s.add(self.rtt[t] == self.rtt[t - 1] + 1)
             # Congestion window and ssthresh must always be greater than 0
             self.s.add(self.cwnd[t] > 0)
             self.s.add(self.ssthresh[t] > 0)
@@ -56,10 +56,10 @@ class Tahoe(object):
             self.s.add(
                 If(cur_ack == int(AckType.NORMAL_ACK),
                    If(self.cwnd[t - 1] < self.ssthresh[t - 1],
-                      And(self.cwnd[t] == self.cwnd[t-1] * 2, 
-                          self.ssthresh[t] == self.ssthresh[t-1]),
-                      And(self.cwnd[t] == self.cwnd[t-1] + 1,
-                          self.ssthresh[t] == self.ssthresh[t-1])),
+                      And(self.cwnd[t] == self.cwnd[t - 1] * 2, 
+                          self.ssthresh[t] == self.ssthresh[t - 1]),
+                      And(self.cwnd[t] == self.cwnd[t - 1] + 1,
+                          self.ssthresh[t] == self.ssthresh[t - 1])),
                     True)
             )
 
@@ -67,7 +67,7 @@ class Tahoe(object):
             self.s.add(
                 If(Or(cur_ack == int(AckType.TIMEOUT_ACK), cur_ack == int(AckType.DUPLICATE_ACK)),
                     And(
-                        self.ssthresh[t] == self.cwnd[t-1] / 2,
+                        self.ssthresh[t] == If(self.cwnd[t - 1] / 2 >= 1, self.cwnd[t - 1] / 2, 1),
                         self.cwnd[t] == 1
                     ),
                     True)
@@ -81,9 +81,56 @@ class Tahoe(object):
             raise Exception("No valid congestion control solution found!")
 
     def verify_congestion(self, answer):
-       pass
+        """
+        This function checks if an answer produced by the algorithm matches all our expectations for
+        a valid congestion solution.
+        """
+        for t in range(len(self.rtt)):
+            # Define variables for the current state
+            cwnd = answer.evaluate(self.cwnd[t]).as_long()
+            ssthresh = answer.evaluate(self.ssthresh[t]).as_long()
+            rtt = answer.evaluate(self.rtt[t]).as_long()
 
-    
+            # RTT should scale linearly
+            assert rtt == t
+            # Congestion window and ssthresh must always be greater than 0
+            assert cwnd > 0
+            assert ssthresh > 0
+
+            # If we are on timestep 1:
+            if t == 0:
+                assert cwnd == 1
+                assert ssthresh == 64
+                continue
+
+            # Otherwise, we can check on values in comparison to previous ones
+            prev_cwnd = answer.evaluate(self.cwnd[t - 1]).as_long()
+            prev_ssthresh = answer.evaluate(self.ssthresh[t - 1]).as_long()
+            prev_ack = answer.evaluate(self.acks[t - 1]).as_long()
+
+            # This can only happen after a timeout or duplicate ACK
+            if cwnd == 1:
+                try:   
+                    assert prev_ack == AckType.TIMEOUT_ACK or prev_ack == AckType.DUPLICATE_ACK
+                except:
+                    print("This should not happen!")
+                    print(f"cwnd: {cwnd}, ssthresh: {ssthresh}, rtt: {rtt}")
+                    print(f"prev_ack: {prev_ack}")
+                    return "This should not happen!"
+
+            # Based on ACKs, we have different constraints to follow:
+            if prev_ack == AckType.NORMAL_ACK:
+                if prev_cwnd < prev_ssthresh:
+                    assert cwnd == prev_cwnd * 2
+                else:
+                    assert cwnd == prev_cwnd + 1
+                assert ssthresh == prev_ssthresh
+            elif prev_ack == AckType.TIMEOUT_ACK or prev_ack == AckType.DUPLICATE_ACK:
+                assert cwnd == 1
+                assert ssthresh == max(prev_cwnd // 2, 1)
+        return "All constraints are satisfied!"
+
+       
 def produce_graph(tahoe_model, ans):
     """Produce a graph of the congestion control algorithm, with phases colored."""
     plt.xlabel('RTT (Round Trip Time)')
