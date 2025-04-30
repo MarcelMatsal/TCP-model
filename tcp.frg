@@ -44,6 +44,27 @@ one sig Network {
     var packets: set Packet
 }
 
+pred nodeDoesNotChange[n: Node] {
+    n.curState' = n.curState
+    n.receiveBuffer' = n.receiveBuffer
+    n.sendBuffer' = n.sendBuffer
+    n.seqNum' = n.seqNum
+    n.ackNum' = n.ackNum
+    n.connectedNode' = n.connectedNode
+    n.send_next' = n.send_next
+    // n.send_una' = n.send_una
+    // n.send_lbw' = n.send_lbw
+    n.recv_next' = n.recv_next
+    // n.recv_lbr' = n.recv_lbr
+}
+
+pred packetDoesNotChange[p: Packet] {
+    p.src' = p.src
+    p.dst' = p.dst
+    p.pSeqNum' = p.pSeqNum
+    p.pAckNum' = p.pAckNum
+}
+
 // A predicate that checks if the system is in a valid state.
 pred validState {
     // Sequence numbers are non-negative integers
@@ -60,9 +81,7 @@ pred validState {
     // Any node with a connected node has to be connected back:
     all n: Node | {
         n.curState = Established implies n.connectedNode != none
-        (n.curState = Established implies {
-            n.connectedNode.connectedNode = n
-        })
+        n.curState = Established implies n.connectedNode.connectedNode = n
         // should we have something like 
         //(n.curState = Established implies {n.connectedNode != n})
     }
@@ -81,10 +100,11 @@ pred validState {
         }
     }
 
+    // CONFLICTS WITH OPEN SINCE RECEIVER IS STILL CLOSED
     // If all nodes are closed, then the network should be empty
-    all n: Node | {
-        n.curState = Closed implies Network.packets = none
-    }
+    // all n: Node | {
+    //     n.curState = Closed implies Network.packets = none
+    // }
 
     // Packet values shouldn't change
     all p: Packet | {
@@ -166,7 +186,7 @@ pred Open[sender, receiver: Node] {
     no receiver.sendBuffer
 
     // The sender will initiate a connection
-    some i : Int | {
+    some i: Int | {
         i >= 0
         sender.curState' = SynSent
         sender.seqNum' = i // sender.ackNum' = 0
@@ -175,25 +195,35 @@ pred Open[sender, receiver: Node] {
 
         // We send the SYN packet to the receiver
         one packet: Packet | {
-            packet.src = sender
-            packet.dst = receiver
-            packet.pSeqNum = sender.seqNum'
-            packet.pAckNum = 0
-            sender.sendBuffer' = packet
+            packet.src' = sender
+            packet.dst' = receiver
+            packet.pSeqNum' = sender.seqNum'
+            packet.pAckNum' = 0
+            sender.sendBuffer' = sender.sendBuffer + packet
+
+            all p: Packet - packet | {
+                packetDoesNotChange[p]
+            }
         }
     }
 
-    receiver.curState' = receiver.curState
-    receiver.connectedNode' = sender
-    receiver.seqNum' = receiver.seqNum
-    receiver.ackNum' = receiver.ackNum
-    receiver.send_next' = receiver.send_next
-    receiver.recv_next' = receiver.recv_next
+    nodeDoesNotChange[receiver]
+    Network.packets' = Network.packets
+
+    // receiver.curState' = receiver.curState
+    // // receiver.connectedNode' = sender
+    // reciever.connectedNode' = receiver.connectedNode
+    // receiver.seqNum' = receiver.seqNum
+    // receiver.ackNum' = receiver.ackNum
+    // receiver.send_next' = receiver.send_next
+    // receiver.recv_next' = receiver.recv_next
+    // receiver.sendBuffer' = receiver.sendBuffer
+    // receiver.receiveBuffer' = receiver.receiveBuffer
     // receiver.send_una' = receiver.send_una
     // receiver.send_lbw' = receiver.send_lbw
     // receiver.recv_lbr' = receiver.recv_lbr
 
-    eventually Send[sender]
+    // eventually Send[sender]
 }
 
 // We send packet through a connection.
@@ -216,117 +246,137 @@ pred userSend[sender: Node] {
 }
 
 pred Send[sender: Node] {
-    all packet: sender.sendBuffer | {
-        Network.packets' = Network.packets + packet
-        // not sure if this works?
-        // this would only work if there is only One packet within the sendBuffer I think
-        // sender.send_next' = packet.pSeqNum
-    }
-    // The connections should remain the same
+    sender.curState != Closed
+    #{sender.sendBuffer} > 0
+    // all packet: sender.sendBuffer | {
+    //     Network.packets' = Network.packets + packet
+    //     // not sure if this works?
+    //     // this would only work if there is only One packet within the sendBuffer I think
+    //     // sender.send_next' = packet.pSeqNum
+    // }
+    Network.packets' = Network.packets + sender.sendBuffer
+
+    sender.curState' = sender.curState
+    sender.seqNum' = sender.seqNum
+    sender.ackNum' = sender.ackNum 
     sender.connectedNode' = sender.connectedNode
-    sender.connectedNode.connectedNode' = sender
+    sender.send_next' = sender.send_next
+    sender.recv_next' = sender.recv_next
+    sender.receiveBuffer' = sender.receiveBuffer
+    sender.sendBuffer' = none
+
+    // nodeDoesNotChange[sender]
+    nodeDoesNotChange[sender.connectedNode]
     
-    #{sender.sendBuffer'} = 0
-    eventually Transfer
+    all p: Packet | {
+        packetDoesNotChange[p]
+    }
+    // eventually Transfer
 }
 
 // Predicate that transfers packets from the network to the destination node's receive buffer.
 pred Transfer {
-    all packet: Packet | {
-        packet in Network.packets => {
-            // They must be connected.
-            Connected[packet.src, packet.dst]
-            packet.dst.receiveBuffer' = packet.dst.receiveBuffer + packet
+    some packet: Network.packets | {
+        let dest = packet.dst | {
+            dest.receiveBuffer' = dest.receiveBuffer + packet
+            Network.packets' = Network.packets - packet
+
+            all n: Node - dest | nodeDoesNotChange[n]
+            all p: Packet | packetDoesNotChange[p]
+
+            dest.curState' = dest.curState
+            dest.sendBuffer' = dest.sendBuffer
+            dest.seqNum' = dest.seqNum
+            dest.ackNum' = dest.ackNum
+            dest.connectedNode' = dest.connectedNode
+            dest.send_next' = dest.send_next
+            dest.recv_next' = dest.recv_next
         }
     }
-    #{Network.packets'} = 0
 }
 
-pred Receive [node: Node] {
-    all packet: node.receiveBuffer | {
-        // closed -> make sure the packet is a syn packet
-        // go into syn received state
-        // send second step of handshake
-        node.curState = Closed implies {
-            node.curState' = SynReceived
-            node.recv_next' = packet.pSeqNum + 1
-            node.ackNum' = packet.pSeqNum
-            
-            node.connectedNode' = packet.src
+pred Receive[node: Node] {
+    some packet: node.receiveBuffer | {
+        let srcNode = packet.src | {
 
-            some i : Int | {
-                i >= 0
-                node.seqNum' = i
-                node.send_next' = i + 1
+            node.receiveBuffer' = node.receiveBuffer - packet
+            node.seqNum' = node.seqNum
+            node.send_next' = node.send_next
+            node.connectedNode' = node.connectedNode
+
+            // Closed state: Accept SYN and reply with SYN-ACK
+            node.curState = Closed => {
+                node.curState' = SynReceived
+                node.connectedNode' = srcNode
+                node.ackNum' = packet.pSeqNum
+                node.recv_next' = packet.pSeqNum + 1
+
+                some i: Int | {
+                    i >= 0
+                    node.seqNum' = i
+                    node.send_next' = i + 1
+                }
+
+                one synAck: Packet | {
+                    synAck.src' = node
+                    synAck.dst' = srcNode
+                    synAck.pSeqNum' = node.seqNum'
+                    synAck.pAckNum' = node.recv_next'
+                    node.sendBuffer' = node.sendBuffer + synAck
+
+                    all p: Packet - synAck | {
+                        packetDoesNotChange[p]
+                    }
+                }
             }
 
-            // send back a syn ack packet
-            one ackPacket: Packet | {
-                ackPacket.src = node
-                ackPacket.dst = packet.src
-                ackPacket.pSeqNum = node.seqNum'
-                ackPacket.pAckNum = node.recv_next'
-                node.sendBuffer' = node.sendBuffer + ackPacket
+            // SynReceived state: Receive ACK -> Established
+            else node.curState = SynReceived && packet.pAckNum = node.seqNum + 1 => {
+                node.curState' = Established
             }
-        }
-        
 
-        // syn received -> go into established state
+            // SynSent state: Receive SYN-ACK -> Established, send final ACK
+            else node.curState = SynSent => {
+                node.curState' = Established
+                node.ackNum' = packet.pSeqNum
+                node.recv_next' = packet.pSeqNum + 1
 
-        node.curState = SynReceived implies {
-            node.curState' = Established
-            // node.recv_next' = packet.pSeqNum + 1
-            // node.ackNum' = packet.pSeqNum
-        }
+                one finalAck: Packet | {
+                    finalAck.src' = node
+                    finalAck.dst' = srcNode
+                    finalAck.pSeqNum' = node.send_next'
+                    finalAck.pAckNum' = node.recv_next'
+                    node.sendBuffer' = node.sendBuffer + finalAck
+                    all p: Packet - finalAck | {
+                        packetDoesNotChange[p]
+                    }
+                }
 
-        // syn sent -> send back last part of handshake
-        // go into established state
 
-        node.curState = SynSent implies {
-            node.curState' = Established
-            node.ackNum' = packet.pSeqNum
-            node.recv_next' = packet.pSeqNum + 1
-
-            one ackPacket: Packet | {
-                ackPacket.src = node
-                ackPacket.dst = packet.src
-                ackPacket.pSeqNum = node.send_next'
-                ackPacket.pAckNum = node.recv_next'
-                node.sendBuffer' = node.sendBuffer + ackPacket
             }
-        }
 
-        // established
-        //  make sure packet has ack flag
-        //  if ack is > send_una and <= send_next
-        //    update send_una (the last byte that has been acked)
-        //  if seq <= rcv_next
-        //    receive data
-        //    increment rcv_next (next byte to be received)
-        // send back ack (send_next, rcv_next)
+            // Established state: Process data, update recv_next and send ACK
+            else node.curState = Established => {
+                // Only receive if in order
+                node.recv_next' = packet.pSeqNum + 1
 
-        node.curState = Established implies {
-            // node.curState' = Established
-            // node.ackNum' = packet.pSeqNum
-            // node.recv_next' = packet.pSeqNum + 1
+                one dataAck: Packet | {
+                    dataAck.src' = node
+                    dataAck.dst' = srcNode
+                    dataAck.pSeqNum' = node.send_next'
+                    dataAck.pAckNum' = node.recv_next'
+                    node.sendBuffer' = node.sendBuffer + dataAck
 
-            // if packet.pAckNum > node.send_una and packet.pAckNum <= node.send_next
-            //     node.send_una' = packet.pAckNum
+                    all p: Packet - dataAck | {
+                        packetDoesNotChange[p]
+                    }
+                }
 
-            // if packet.pSeqNum <= node.recv_next
-            //     node.receiveBuffer' = node.receiveBuffer + packet
-            //     node.recv_next' = packet.pSeqNum + 1
-
-
-            node.recv_next' = packet.pSeqNum + 1
-
-            one ackPacket: Packet | {
-                ackPacket.src = node
-                ackPacket.dst = packet.src
-                ackPacket.pSeqNum = node.send_next'
-                ackPacket.pAckNum = node.recv_next'
-                node.sendBuffer' = node.sendBuffer + ackPacket
+                
             }
+
+            // Frame conditions for all other nodes and packets
+            all n: Node - node | nodeDoesNotChange[n]
         }
     }
 }
@@ -371,10 +421,33 @@ pred Close[sender, receiver: Node] {
     receiver.sendBuffer' = none
 }
 
+pred dummyClose {
+    // This is a dummy close that does not actually do anything
+    // It is used to allow for lasso traces
+    all n: Node | {
+        n.curState' = Closed
+        n.receiveBuffer' = none
+        n.sendBuffer' = none
+        n.connectedNode' = none
+    }
+    all p: Packet | {
+        p.src' = none
+        p.dst' = none
+        p.pSeqNum' = none
+        p.pAckNum' = none
+    }
+    Network.packets' = none
+}
+
 
 // defines the valid moves that the nodes can do
 pred moves[sender, receiver: Node]{
-    (Open[sender, receiver] or Receive[sender] or Transfer or Send[sender])
+    Open[sender, receiver] or
+    // Receive[receiver] or 
+    // Transfer or 
+    Send[sender] or
+    Transfer or
+    doNothing
     // // I am thinking this should be kinda like a bunch of implications based on the current states of the nodes
     // ((sender.curState = Closed and receiver.curState = Closed) implies Open[sender, receiver]) 
     
@@ -384,35 +457,23 @@ pred moves[sender, receiver: Node]{
 }
 
 pred doNothing {
-    // predicate that allows for lasso traces and has the model do nothin 
     all n: Node | {
-        n.curState' = n.curState
-        n.receiveBuffer' = n.receiveBuffer
-        n.sendBuffer' =  n.sendBuffer
-        n.seqNum' = n.seqNum
-        n.ackNum' = n.ackNum
-        n.connectedNode' = n.connectedNode
-        // n.send_next' =  n.send_next
-        // n.send_una' = n.send_una
-        // n.send_lbw' = n.send_lbw
-        // n.recv_next' = n.recv_next
-        // n.recv_lbr' = n.recv_lbr
+        nodeDoesNotChange[n]
     }
-    // all p : Packet | {
-    //     p.src' = p.src
-    //     p.dst' = p.dst
-    //     p.pSeqNum' = p.pSeqNum
-    //     p.pAckNum' = p.pAckNum
-    // }
+    all p: Packet | {
+        packetDoesNotChange[p]
+    }
+    Network.packets' = Network.packets
 }
 
 pred traces {
     init
     always {validState}
-
-    all disj sender, receiver: Node | {
+    some disj sender, receiver: Node | {
         eventually Open[sender, receiver]
-        // always moves[sender, receiver]
+        eventually Send[sender]
+        eventually Transfer
+        always moves[sender, receiver]
     }
 }
 
@@ -495,24 +556,3 @@ pred isReceiver[n: Node] {
 // run {
 //     // traces for ...
 // }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
