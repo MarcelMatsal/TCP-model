@@ -6,12 +6,19 @@ const stage = new Stage();
 var currentState = 0;
 
 const NODE_SIZE = width / 3;
+const nodes = Node.atoms();
+const totalNodes = nodes.length;
+const margin = 50;
+const availableWidth = width - 2 * margin;
+const spacing = availableWidth / totalNodes;
 
 // We the elements of nodes that we keep track of in the visualization.
 const nodeElements = {
   "nodeLabels": [],
   "nodeBoxes": [],
 };
+
+const nodePositions = {}
 
 const stateColors = {
   Closed0: "#e63946",       // Red
@@ -138,36 +145,52 @@ function getCurStateText(idx) {
   return node_atom.curState.toString();
 }
 
-function genBufferBox(x, y, x_offset, y_offset) {
+function genBufferBox(centerX, centerY, y_offset, label, labelOffsetY = -15) {
+  const bufferX = centerX - (NODE_SIZE - 15) / 2;
+  const bufferY = centerY + y_offset;
+
   const bufferBox = new Rectangle({
-    coords: { x: x + x_offset, y: y + y_offset },
+    coords: {
+      x: bufferX,
+      y: bufferY,
+    },
     width: NODE_SIZE - 15,
     height: NODE_SIZE / 3,
-    color: "white",
+    color: "whitesmoke",
   });
   stage.add(bufferBox);
+
+  const labelBox = new TextBox({
+    text: label,
+    coords: { x: bufferX + (NODE_SIZE - 15) / 2, y: bufferY + labelOffsetY },
+    fontSize: 12,
+    color: "white",
+    fontWeight: "bold",
+  });
+  stage.add(labelBox);
 }
 
-const nodes = Node.atoms()
 nodes.forEach((node, idx) => {
-  const x = width / 4 + idx * (width / 2);
-  const y = height / 6;
+  const centerX = margin + spacing * idx + spacing / 2;
+  const centerY = height / 4;
+
+  const boxWidth = NODE_SIZE;
+  const boxHeight = NODE_SIZE;
 
   const colorBox = new Rectangle({
-    coords: { x: x - 75, y: y - 25 },
-    width: NODE_SIZE,
-    height: NODE_SIZE,
+    coords: { x: centerX - boxWidth / 2, y: centerY - boxHeight / 2 },
+    width: boxWidth,
+    height: boxHeight * 1.25,
     color: stateColors[getCurStateText(idx)],
   });
   stage.add(colorBox);
 
-  // We add a box for each buffer.
-  genBufferBox(x, y, -NODE_SIZE / 3.2, NODE_SIZE / 8)
-  genBufferBox(x, y, -NODE_SIZE / 3.2, 4 * (NODE_SIZE / 8));
+  genBufferBox(centerX, centerY, -25, "SendBuffer");
+  genBufferBox(centerX, centerY, 75, "ReceiveBuffer");
 
-  var node_label = new TextBox({
+  const node_label = new TextBox({
     text: () => `Node ${idx}: ${getCurStateText(idx)}`,
-    coords: { x: x + NODE_SIZE / 6, y: y },
+    coords: { x: centerX, y: centerY - NODE_SIZE / 3 },
     fontSize: 15,
     fontWeight: "Bold",
     color: "black",
@@ -175,6 +198,8 @@ nodes.forEach((node, idx) => {
   stage.add(node_label);
   nodeElements.nodeBoxes.push(colorBox);
   nodeElements.nodeLabels.push(node_label);
+
+  nodePositions[idx] = [centerX, centerY]
 });
 
 stage.render(svg);
