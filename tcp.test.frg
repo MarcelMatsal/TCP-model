@@ -477,7 +477,7 @@ test suite for userSend {
             all sender: Node | {
                 sender.seqNum = 2
                 sender.ackNum = 0
-                sender.send_lbw = 1
+                // sender.send_lbw = 1
                 userSend[sender]
                 sender.curState = Established
             }
@@ -490,12 +490,12 @@ test suite for userSend {
             all sender: Node | {
                 sender.seqNum = 2
                 sender.ackNum = 0
-                sender.send_lbw = 1
+                // sender.send_lbw = 1
                 userSend[sender]
                 sender.curState = Established
                 sender.seqNum' = 3
                 sender.ackNum' = 0
-                sender.send_lbw' = 2
+                // sender.send_lbw' = 2
             }
         } is sat
     }  
@@ -506,12 +506,12 @@ test suite for userSend {
             all sender: Node | {
                 sender.seqNum = 2
                 sender.ackNum = 0
-                sender.send_lbw = 1
+                // sender.send_lbw = 1
                 userSend[sender]
                 sender.curState = Established
                 sender.seqNum' = 3
                 sender.ackNum' = 0
-                sender.send_lbw' = 2
+                // sender.send_lbw' = 2
                 some p: Packet | {
                     p.src = sender
                     p.dst = sender.connectedNode
@@ -561,12 +561,14 @@ test suite for userSend {
             some sender: Node | {
                 sender.seqNum = 2
                 sender.ackNum = 0
-                sender.send_lbw = 1
+                sender.send_next = 2
+                // sender.send_lbw = 1
                 userSend[sender]
                 sender.curState = Established
+                sender.send_next' = 2
                 sender.seqNum' = 2
                 sender.ackNum' = 0
-                sender.send_lbw' = 2
+                // sender.send_lbw' = 2
             }
         } is unsat
     } 
@@ -576,12 +578,12 @@ test suite for userSend {
             some sender: Node | {
                 sender.seqNum = 2
                 sender.ackNum = 0
-                sender.send_lbw = 1
+                // sender.send_lbw = 1
                 userSend[sender]
                 sender.curState = Established
                 sender.seqNum' = 3
                 sender.ackNum' != 0
-                sender.send_lbw' = 2
+                // sender.send_lbw' = 2
             }
         } is unsat
     }  
@@ -590,12 +592,12 @@ test suite for userSend {
             some sender: Node | {
                 sender.seqNum = 2
                 sender.ackNum = 0
-                sender.send_lbw = 1
+                // sender.send_lbw = 1
                 userSend[sender]
                 sender.curState = Established
                 sender.seqNum' = 3
                 sender.ackNum' = 0
-                sender.send_lbw' = 4
+                // sender.send_lbw' = 4
             }
         } is unsat
     }   
@@ -608,12 +610,12 @@ test suite for userSend {
             some sender: Node | {
                 sender.seqNum = 2
                 sender.ackNum = 0
-                sender.send_lbw = 1
+                // sender.send_lbw = 1
                 userSend[sender]
                 sender.curState = Established
                 sender.seqNum' = 3
                 sender.ackNum' = 0
-                sender.send_lbw' = 2
+                // sender.send_lbw' = 2
                 one p: Packet | {
                     some n2: Node | {
                         n2 != sender
@@ -633,12 +635,12 @@ test suite for userSend {
             some sender: Node | {
                 sender.seqNum = 2
                 sender.ackNum = 0
-                sender.send_lbw = 1
+                // sender.send_lbw = 1
                 userSend[sender]
                 sender.curState = Established
                 sender.seqNum' = 3
                 sender.ackNum' = 0
-                sender.send_lbw' = 2
+                // sender.send_lbw' = 2
                 one p: Packet | {
                     some n2: Node | {
                         n2 != sender
@@ -658,12 +660,12 @@ test suite for userSend {
             some sender: Node | {
                 sender.seqNum = 2
                 sender.ackNum = 0
-                sender.send_lbw = 1
+                // sender.send_lbw = 1
                 userSend[sender]
                 sender.curState = Established
                 sender.seqNum' = 3
                 sender.ackNum' = 0
-                sender.send_lbw' = 2
+                // sender.send_lbw' = 2
                 one p: Packet | {
                     some n2: Node | {
                         n2 != sender
@@ -684,12 +686,12 @@ test suite for userSend {
             some sender: Node | {
                 sender.seqNum = 2
                 sender.ackNum = 0
-                sender.send_lbw = 1
+                // sender.send_lbw = 1
                 userSend[sender]
                 sender.curState = Established
                 sender.seqNum' = 3
                 sender.ackNum' = 0
-                sender.send_lbw' = 2
+                // sender.send_lbw' = 2
                 one p: Packet | {
                     p.dst = sender.connectedNode
                     p.src = sender
@@ -705,12 +707,12 @@ test suite for userSend {
             some sender: Node | {
                 sender.seqNum = 2
                 sender.ackNum = 0
-                sender.send_lbw = 1
+                // sender.send_lbw = 1
                 userSend[sender]
                 sender.curState = Established
                 sender.seqNum' = 3
                 sender.ackNum' = 0
-                sender.send_lbw' = 2
+                // sender.send_lbw' = 2
                 one p: Packet | {
                     p.dst = sender.connectedNode
                     p.src = sender
@@ -731,7 +733,7 @@ test suite for Send {
     test expect {
         validNetworkIncrease: {
             some sender: Node | {
-                send[sender]
+                Send[sender]
             }
             #{Network.packets'} > #{Network.packets}
         } is sat
@@ -741,7 +743,7 @@ test suite for Send {
     test expect {
         correctPacketsInNetwork: {
             some sender: Node | {
-                send[sender]
+                Send[sender]
                 all packet: sender.sendBuffer | {
                     packet in Network.packets'
                     not packet in Network.packets
@@ -755,7 +757,7 @@ test suite for Send {
     test expect {
         emptySendBuffer: {
             all sender: Node | {
-                send[sender] implies #{sender.sendBuffer'} = 0
+                Send[sender] implies #{sender.sendBuffer'} = 0
             }
         } is sat
     }
@@ -766,7 +768,7 @@ test suite for Send {
     test expect {
         nonemptySendBuffer: {
             some sender: Node | {
-                send[sender]
+                Send[sender]
                 #{sender.sendBuffer'} != 0
             }
         } is unsat
@@ -774,7 +776,7 @@ test suite for Send {
     test expect {
         nonemptySendBuffer2: {
             some sender: Node | {
-                send[sender]
+                Send[sender]
                 some packet: Packet | {
                     packet in sender.sendBuffer'
                 }
@@ -786,7 +788,7 @@ test suite for Send {
     test expect {
         incorrectPacketsInNetwork: {
             some sender: Node | {
-                send[sender]
+                Send[sender]
                 some packet: sender.sendBuffer | {
                     not packet in Network.packets'
                 }
@@ -798,7 +800,7 @@ test suite for Send {
         incorrectPacketsInNetwork2: {
             some sender: Node | {
                 #{sender.sendBuffer} > 0
-                send[sender]
+                Send[sender]
             }
             #{Network.packets'} < #{Network.packets}
         } is unsat
