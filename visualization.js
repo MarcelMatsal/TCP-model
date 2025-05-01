@@ -5,6 +5,8 @@
 const stage = new Stage();
 var currentState = 0;
 
+const NODE_SIZE = width / 3;
+
 // We the elements of nodes that we keep track of in the visualization.
 const nodeElements = {
   "nodeLabels": [],
@@ -136,22 +138,36 @@ function getCurStateText(idx) {
   return node_atom.curState.toString();
 }
 
+function genBufferBox(x, y, x_offset, y_offset) {
+  const bufferBox = new Rectangle({
+    coords: { x: x + x_offset, y: y + y_offset },
+    width: NODE_SIZE - 15,
+    height: NODE_SIZE / 3,
+    color: "white",
+  });
+  stage.add(bufferBox);
+}
+
 const nodes = Node.atoms()
 nodes.forEach((node, idx) => {
-  const x = width / 3 + idx * (width / 2);
-  const y = 60;
+  const x = width / 4 + idx * (width / 2);
+  const y = height / 6;
 
   const colorBox = new Rectangle({
     coords: { x: x - 75, y: y - 25 },
-    width: 200,
-    height: 50,
+    width: NODE_SIZE,
+    height: NODE_SIZE,
     color: stateColors[getCurStateText(idx)],
   });
   stage.add(colorBox);
 
+  // We add a box for each buffer.
+  genBufferBox(x, y, -NODE_SIZE / 3.2, NODE_SIZE / 8)
+  genBufferBox(x, y, -NODE_SIZE / 3.2, 4 * (NODE_SIZE / 8));
+
   var node_label = new TextBox({
     text: () => `Node ${idx}: ${getCurStateText(idx)}`,
-    coords: { x: x, y: y },
+    coords: { x: x + NODE_SIZE / 6, y: y },
     fontSize: 15,
     fontWeight: "Bold",
     color: "black",
