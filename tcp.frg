@@ -1,7 +1,7 @@
 #lang forge/temporal
 
-option max_tracelength 30
-option min_tracelength 18
+option max_tracelength 40
+option min_tracelength 40
 
 option solver Glucose
 // making it so that the visualization loads in automatically
@@ -19,6 +19,7 @@ one sig FinWait1 extends State {}
 one sig FinWait2 extends State {}
 one sig TimeWait extends State {}
 one sig CloseWait extends State {}
+one sig FinAck extends State {}
 
 // A node in the system.
 sig Node {
@@ -240,7 +241,7 @@ pred userSend[sender: Node] {
 // Predicate that moves packets from the sender's send buffer to the network.
 pred Send[sender: Node] {
     sender.curState != Closed
-    #{sender.sendBuffer} > 0
+    #{sender.sendBuffer} = 1 //> 0
 
     Network.packets' = Network.packets + sender.sendBuffer
 
@@ -277,6 +278,7 @@ pred Transfer {
             dest.connectedNode' = dest.connectedNode
             dest.send_next' = dest.send_next
             dest.recv_next' = dest.recv_next
+
         }
     }
 }
@@ -382,49 +384,117 @@ pred Receive[node: Node] {
 
 pred Close[sender, receiver: Node] {
     // They must both be established and connected:
-    Connected[sender, receiver]
-    no Network.packets
-    no sender.receiveBuffer
-    no receiver.receiveBuffer
-    no sender.sendBuffer
-    no receiver.sendBuffer
+    (Connected[sender, receiver] or
+     (sender.curState = FinWait1 and receiver.curState = Established) or
+     (sender.curState = FinWait2 and receiver.curState = CloseWait) or
+    (sender.curState = FinWait2 and receiver.curState = FinAck)) 
 
-    // The sender will initiate the close connection.
-    // one packet: Packet | {
-    //     packet.src = sender
-    //     packet.dst = receiver
-    //     packet.pSeqNum = sender.seqNum + 1
-    //     packet.pAckNum = sender.ackNum
-    //     sender.sendBuffer' = sender.sendBuffer + packet
 
-    //     // The sender will go into the FinWait1 state.
-    //     sender.curState' = FinWait1 // Is this weird because it will never actually happen?
-    // }
+    (no Network.packets) 
+    (no sender.receiveBuffer)  
+    (no receiver.receiveBuffer) 
+    (no sender.sendBuffer) 
+    (no receiver.sendBuffer) 
 
-    // one ackPacket: Packet | {
-    //     ackPacket.src = receiver
-    //     ackPacket.dst = sender
-    //     ackPacket.pSeqNum = receiver.seqNum + 1
-    //     ackPacket.pAckNum = sender.seqNum + 1
-    //     receiver.sendBuffer' = receiver.sendBuffer + ackPacket
+    Connected[sender, receiver] => {
+        nodeDoesNotChange[receiver]
+        Network.packets' = Network.packets
+        one packet: Packet | {
+                packet.src = sender
+                packet.dst = receiver
+                packet.pSeqNum = add[sender.seqNum,1]
+                packet.pAckNum = sender.ackNum
+                sender.sendBuffer' = sender.sendBuffer + packet
+                sender.receiveBuffer' = sender.receiveBuffer
+                sender.connectedNode' = sender.connectedNode
+                // The sender will go into the FinWait1 state.
+                sender.curState' = FinWait1 
+        }}
 
-    //     // The receiver will go into the CloseWait state.
-    //     receiver.curState' = CloseWait // Is this weird because it will never actually happen?
-    // }
+    else (sender.curState = FinWait1 and receiver.curState = Established) => {
+        sender.receiveBuffer' = sender.receiveBuffer and
+        sender.sendBuffer' = sender.sendBuffer and
+        sender.seqNum' = sender.seqNum and
+        sender.ackNum' = sender.ackNum and
+        sender.connectedNode' = sender.connectedNode and
+        sender.send_next' = sender.send_next and
+        sender.recv_next' = sender.recv_next and
+        Network.packets' = Network.packets 
 
+
+        one ackPacket: AckPacket | {
+                    ackPacket.src = receiver
+                    ackPacket.dst = sender
+                    ackPacket.pSeqNum = add[receiver.seqNum,1]
+                    ackPacket.pAckNum = add[sender.seqNum,1]
+                    receiver.sendBuffer' = receiver.sendBuffer + ackPacket
+                    receiver.receiveBuffer' = receiver.receiveBuffer
+
+                    // The receiver will go into the CloseWait state.
+                    receiver.curState' = CloseWait 
+                    // sender goes into FinWait2
+                    sender.curState' = FinWait2
+
+            }
+
+        }
+
+    // receiver sends Fin
+    else (sender.curState = FinWait2 and receiver.curState = CloseWait) => {
+        nodeDoesNotChange[sender] 
+
+        one packet: Packet | {
+                    packet.src = receiver
+                    packet.dst = sender
+                    packet.pSeqNum = add[receiver.seqNum,1]
+                    packet.pAckNum = receiver.ackNum
+                    receiver.sendBuffer' = receiver.sendBuffer + packet
+                    // receiver switches to LastAck state
+                    receiver.curState' = FinAck
+
+
+
+        }
+    }
+
+    else (sender.curState = FinWait2 and receiver.curState = FinAck) => {
+        receiver.seqNum' = receiver.seqNum and
+        receiver.ackNum' = receiver.ackNum and
+        receiver.send_next' = receiver.send_next and
+        receiver.recv_next' = receiver.recv_next 
+
+        one ackPacket: AckPacket | {
+                    ackPacket.src = sender
+                    ackPacket.dst = receiver
+                    ackPacket.pSeqNum = add[sender.seqNum,1]
+                    ackPacket.pAckNum = add[receiver.seqNum,1]
+                    sender.sendBuffer' = sender.sendBuffer + ackPacket
+                    // The receiver will go into the CloseWait state.
+                    sender.curState' = Closed
+                    // sender goes into FinWait2
+                    receiver.curState' = Closed
+                    // They are not connected to anything:
+                    sender.connectedNode' = none
+                    receiver.connectedNode' = none
+                    // They have no packets in their buffers:
+                    sender.receiveBuffer' = none
+                    sender.sendBuffer' = none
+                    receiver.receiveBuffer' = none
+                    receiver.sendBuffer' = none
+    }}
     // Connected[sender, receiver]
 
-    // They are both closed:
-    sender.curState' = Closed
-    receiver.curState' = Closed
-    // They are not connected to anything:
-    sender.connectedNode' = none
-    receiver.connectedNode' = none
-    // They have no packets in their buffers:
-    sender.receiveBuffer' = none
-    sender.sendBuffer' = none
-    receiver.receiveBuffer' = none
-    receiver.sendBuffer' = none
+    // // They are both closed:
+    // sender.curState' = Closed
+    // receiver.curState' = Closed
+    // // They are not connected to anything:
+    // sender.connectedNode' = none
+    // receiver.connectedNode' = none
+    // // They have no packets in their buffers:
+    // sender.receiveBuffer' = none
+    // sender.sendBuffer' = none
+    // receiver.receiveBuffer' = none
+    // receiver.sendBuffer' = none
 }
 
 pred dummyClose {
