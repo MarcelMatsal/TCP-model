@@ -4,6 +4,8 @@ option max_tracelength 30
 option min_tracelength 18
 
 option solver Glucose
+// making it so that the visualization loads in automatically
+option run_sterling "visualization.js"
 
 ---------- Definitions ----------
 
