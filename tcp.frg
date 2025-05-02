@@ -1,7 +1,7 @@
 #lang forge/temporal
 
 option max_tracelength 30
-option min_tracelength 18
+option min_tracelength 23
 
 option solver Glucose
 // making it so that the visualization loads in automatically
@@ -328,6 +328,10 @@ pred Receive[node: Node] {
                 node.seqNum' = node.seqNum
                 node.send_next' = node.send_next
                 node.sendBuffer' = node.sendBuffer
+
+                all p: Packet - packet | {
+                    packetDoesNotChange[p]
+                }
             }
 
             // SynSent state: Receive SYN-ACK -> Established, send final ACK
@@ -386,7 +390,7 @@ pred Receive[node: Node] {
                 node.seqNum' = node.seqNum
                 node.send_next' = node.send_next
                 node.recv_next' = node.recv_next
-                node.receiveBuffer' = node.receiveBuffer
+                // node.receiveBuffer' = node.receiveBuffer
                 node.sendBuffer' = node.sendBuffer
 
                 // Not sure what we do here, throw it away?
@@ -404,7 +408,7 @@ pred Receive[node: Node] {
                 node.ackNum' = node.ackNum
                 node.seqNum' = node.seqNum
                 node.send_next' = node.send_next
-                node.receiveBuffer' = node.receiveBuffer
+                // node.receiveBuffer' = node.receiveBuffer
                 node.connectedNode' = node.connectedNode
 
 
@@ -429,7 +433,7 @@ pred Receive[node: Node] {
                 node.connectedNode' = node.connectedNode
                 node.seqNum' = node.seqNum
                 node.send_next' = node.send_next
-                node.receiveBuffer' = node.receiveBuffer
+                // node.receiveBuffer' = node.receiveBuffer
 
                 one ack: AckPacket | {
                     ack.src' = node
@@ -571,7 +575,7 @@ pred moves[sender, receiver: Node]{
 
     all n: Node | {
         some n.sendBuffer => eventually Send[n]
-        // some n.receiveBuffer => eventually Receive[n]
+        some n.receiveBuffer => eventually Receive[n]
     }
 
     some Network.packets => eventually Transfer
