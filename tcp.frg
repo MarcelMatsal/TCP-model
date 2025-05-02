@@ -351,8 +351,10 @@ pred Receive[node: Node] {
 
             // Established state: Process data, update recv_next and send ACK
             else (node.curState = Established and packet in DataPacket) => {
+                // should state stay the same here?
+
                 // Only receive if in order
-                node.recv_next' = add[packet.pSeqNum,1]
+                node.recv_next' = add[packet.pSeqNum, 1]
 
                 one dataAck: AckPacket | {
                     dataAck.src' = node

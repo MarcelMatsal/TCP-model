@@ -10,8 +10,9 @@ properties of the overall system.
 
 */
 
-
 /* PREDICATE TESTS */
+
+
 test suite for validState {
     // SAT CASES
     // a connected node has something pointed to it and it points back to that
@@ -807,21 +808,232 @@ test suite for Send {
     }
 }
 
+pred emptyNet {
+    #{Network.packets'} = 0
+}
+
+pred destination {
+        some packet: Network.packets | {
+        let dest = packet.dst | {
+            dest.receiveBuffer' = dest.receiveBuffer + packet
+        }
+        }
+}
 
 test suite for Transfer {
 
+    nonChangingPackets: assert all p: Packet | packetDoesNotChange[p] is necessary for Transfer
+    somethingInNetwork: assert #{Network.packets} > 0 is necessary for Transfer
+    destIncreases: assert Transfer is sufficient for destination
+    // becomesEmpty: assert Transfer is sufficient for emptyNet
+
     // SAT Condition
 
+    // size of the destination's receiveBuffer increases by one
+    test expect {
+        receiveBufferCorrectIncrease: {
+            Transfer
+            #{Network.packets} > 0 => {
+                some packet: Network.packets | {
+                    let dest = packet.dst | { 
+                        #{dest.receiveBuffer'} >  #{dest.receiveBuffer}
+                    } 
+                }
+            }
+        } is sat
+    } 
+
+    // nothing changes if the size of Networks is 0
+
+    // destination remains the same
+    test expect {
+        sameDest: {
+            Transfer
+            some packet: Network.packets | {
+                let dest = packet.dst | { 
+                    dest.curState' = dest.curState
+                    dest.sendBuffer' = dest.sendBuffer
+                    dest.seqNum' = dest.seqNum
+                    dest.ackNum' = dest.ackNum
+                    dest.connectedNode' = dest.connectedNode
+                    dest.send_next' = dest.send_next
+                    dest.recv_next' = dest.recv_next
+                } 
+            }            
+        } is sat
+    }
+
+    // all other nodes remain the same
+    test expect {
+        allNodesSame: {
+            some packet: Network.packets | {
+                let dest = packet.dst | { 
+                    Transfer implies (all n: Node - dest | nodeDoesNotChange[n])
+                } 
+            }     
+        } is sat
+    } 
+
+    // the packets do not change
+    test expect {
+        samePackets: {
+            Transfer
+            all p: Packet | packetDoesNotChange[p]
+        } is sat
+    } 
 
     // UNSAT Conditions
 
+    // some node changes
+    test expect {
+        changingNode: {
+            Transfer
+            some n: Node | n.curState' != n.curState
+        } is unsat
+    } 
+
+    // the packet changes
+    test expect {
+        changingPacket: {
+            Transfer
+            some p: Packet | p.src' != p.src
+        } is unsat
+    } 
+
+    // Size of the network increases
+    test expect {
+        sameSizeNet: {
+            Transfer
+            #{Network.packets'} > #{Network.packets}
+        } is unsat
+    } 
+
+    // size of the network stays the same
+    test expect {
+        sameSizeNet2: {
+            Transfer
+            #{Network.packets'} = #{Network.packets}
+        } is unsat
+    } 
 }
 
 
 
-test suite for Receive {
-
+test suite for Receive {   
     // SAT Condition
+
+    // network does not change
+    test expect {
+        sameSNet: {
+            some n: Node | {
+                Receive[n]
+            }
+            #{Network.packets'} = #{Network.packets}
+        } is sat
+    } 
+
+    // Receive buffer empties
+    test expect {
+        emptyingReceive: {
+            some node : Node | {
+                #{node.receiveBuffer'} = subtract[#{node.receiveBuffer},1]
+                Receive[node]
+            }
+        } is sat
+    } 
+
+    test expect {
+        emptyingReceive2: {
+            some node : Node | {
+                Receive[node] => 
+                #{node.receiveBuffer'} = 0
+            }
+        } is sat
+    } 
+
+    // closed means SynSent
+    test expect {
+        becomesSynReceived: {
+            some node : Node | {
+                (Receive[node] and node.curState = Closed) => 
+                    node.curState' = SynReceived
+            }
+        } is sat
+    } 
+
+    // send next changes
+    test expect {
+        newNext: {
+            some node : Node | {
+                (Receive[node] and node.curState = Closed) => 
+                    node.send_next' != node.send_next
+            }
+        } is sat
+    } 
+
+    // at SynReceived means established
+    test expect {
+        establishedNext: {
+            some node : Node | {
+                (Receive[node] and node.curState = SynReceived) => 
+                    node.curState' = Established
+            }
+        } is sat
+    } 
+
+    // normal communications
+    test expect {
+        normalCommunication: {
+            some node : Node | {
+                some packet: node.receiveBuffer | {
+                    let srcNode = packet.src | {
+                        (Receive[node] and node.curState = Established and packet in DataPacket) => 
+                            node.recv_next' = add[packet.pSeqNum, 1]
+                    }
+                }
+            }
+        } is sat
+    } 
+
+    test expect {
+        normalCommunication2: {
+            some node : Node | {
+                some packet: node.receiveBuffer | {
+                    let srcNode = packet.src | {
+                        (Receive[node] and node.curState = Established and packet in AckPacket) => 
+                            nodeDoesNotChange[node]
+                    }
+                }
+            }
+        } is sat
+    } 
+
+
+
+    // test expect {
+    //     sameSNet: {
+    //         some node : Node | {
+    //             some packet: node.receiveBuffer | {
+    //                 let srcNode = packet.src | {
+    //                     node.receiveBuffer' = node.receiveBuffer - packet
+
+    //                 }
+    //             }
+
+    //             Receive[node]
+    //         }
+    //     } is sat
+    // } 
+
+
+    // test expect {
+    //     sameSNet: {
+    //         some n: Node | {
+    //             Receive[n]
+    //         }
+    //         #{Network.packets'} = #{Network.packets}
+    //     } is sat
+    // } 
 
 
     // UNSAT Conditions
