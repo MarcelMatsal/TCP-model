@@ -8,14 +8,13 @@ var currentState = 0;
 const NODE_SIZE = width / 3;
 const nodes = Node.atoms();
 const totalNodes = nodes.length;
-const margin = 50;
-const availableWidth = width - 2 * margin;
-const spacing = availableWidth / totalNodes;
+const spacing = width / totalNodes;
 
 // We the elements of nodes that we keep track of in the visualization.
 const nodeElements = {
   "nodeLabels": [],
   "nodeBoxes": [],
+  "nodeSendBuffers": [],
 };
 
 const nodePositions = {}
@@ -27,9 +26,14 @@ const stateColors = {
   Established0: "#457b9d",  // Blue
 };
 
+function fam(expr) {
+  if (!expr.empty()) return expr.tuples()[0].atoms()[0];
+  return "none";
+}
+
 
 function currentStateToString() {
-  return `Current State: ${currentState}`;
+  return `Current Step: ${currentState}`;
 }
 
 // Resetting the labels for each node on change of state.
@@ -40,6 +44,9 @@ function updateNodes() {
   nodeElements.nodeBoxes.forEach((box, idx) => {
     box.setColor(stateColors[getCurStateText(idx)]);
   });
+  nodeElements.nodeSendBuffers.forEach((label, idx) => {
+    label.setText(getCurSendBufferData(idx))
+  })
 }
 
 // Thank you to Sarah Ridley for these functions!
@@ -62,7 +69,7 @@ function decrementState() {
 // State label
 var state_label = new TextBox({
   text: () => currentStateToString(),
-  coords: { x: 300, y: 510 },
+  coords: { x: width / 2, y: 510 },
   fontSize: 20,
   fontWeight: "Bold",
   color: "black",
@@ -73,7 +80,7 @@ stage.add(state_label);
 var prev_button = new TextBox({
   text: "▬",
   color: "gray",
-  coords: { x: 225, y: 550 },
+  coords: { x: width / 2 - 75, y: 550 },
   fontSize: 200,
   events: [
     {
@@ -88,7 +95,7 @@ stage.add(prev_button);
 
 var prev_button_label = new TextBox({
   text: "Previous State",
-  coords: { x: 225, y: 570 },
+  coords: { x: width / 2 - 75, y: 570 },
   fontSize: 15,
   fontWeight: "Bold",
   color: "white",
@@ -107,7 +114,7 @@ stage.add(prev_button_label);
 var next_button = new TextBox({
   text: "▬",
   color: "gray",
-  coords: { x: 375, y: 550 },
+  coords: { x: width / 2 + 75, y: 550 },
   fontSize: 200,
   events: [
     {
@@ -122,7 +129,7 @@ stage.add(next_button);
 
 var next_button_label = new TextBox({
   text: "Next State",
-  coords: { x: 375, y: 570 },
+  coords: { x: width / 2 + 75, y: 570 },
   fontSize: 15,
   fontWeight: "Bold",
   color: "white",
@@ -137,12 +144,20 @@ var next_button_label = new TextBox({
 });
 stage.add(next_button_label);
 
+function getNodeInstanceFromId(idx) {
+  const instance = instances[currentState];
+  return instance.atoms().filter((atom) => atom.id() === `Node${idx}`)[0];
+}
 
 
 function getCurStateText(idx) {
-  const instance = instances[currentState];
-  const node_atom = instance.atoms().filter((atom) => atom.id() === `Node${idx}`)[0];
-  return node_atom.curState.toString();
+  const nodeAtom = getNodeInstanceFromId(idx)
+  return nodeAtom.curState.toString();
+}
+
+function getCurSendBufferData(idx) {
+  const nodeAtom = getNodeInstanceFromId(idx)
+  return nodeAtom.sendBuffer.toString()
 }
 
 function genBufferBox(centerX, centerY, y_offset, label, labelOffsetY = -15) {
@@ -171,7 +186,7 @@ function genBufferBox(centerX, centerY, y_offset, label, labelOffsetY = -15) {
 }
 
 nodes.forEach((node, idx) => {
-  const centerX = margin + spacing * idx + spacing / 2;
+  const centerX = spacing * idx + spacing / 2;
   const centerY = height / 4;
 
   const boxWidth = NODE_SIZE;
@@ -188,17 +203,32 @@ nodes.forEach((node, idx) => {
   genBufferBox(centerX, centerY, -25, "SendBuffer");
   genBufferBox(centerX, centerY, 75, "ReceiveBuffer");
 
-  const node_label = new TextBox({
+
+  // For every packet in a node.sendBuffer, we make a label
+  const sendBufferLabel = new TextBox({
+    text: getCurSendBufferData(idx),  // or customize this if needed
+    coords: {
+      x: centerX,
+      y: centerY,  // stack inside the SendBuffer box
+    },
+    fontSize: 10,
+    color: "black",
+  });
+  stage.add(sendBufferLabel)
+
+
+  const nodeLabel = new TextBox({
     text: () => `Node ${idx}: ${getCurStateText(idx)}`,
     coords: { x: centerX, y: centerY - NODE_SIZE / 3 },
     fontSize: 15,
     fontWeight: "Bold",
     color: "black",
   });
-  stage.add(node_label);
-  nodeElements.nodeBoxes.push(colorBox);
-  nodeElements.nodeLabels.push(node_label);
+  stage.add(nodeLabel);
 
+  nodeElements.nodeBoxes.push(colorBox);
+  nodeElements.nodeLabels.push(nodeLabel);
+  nodeElements.nodeSendBuffers.push(sendBufferLabel)
   nodePositions[idx] = [centerX, centerY]
 });
 
