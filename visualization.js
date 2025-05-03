@@ -3,10 +3,11 @@
 */
 
 const stage = new Stage();
+stage.backgroundColor = "white"
 var currentState = 0;
 
 const NODE_SIZE = width / 3;
-const NETWORK_POS = [width / 2 - 50, height / 5]
+const NETWORK_POS = [width / 2 - 50, height / 7]
 const nodes = Node.atoms();
 const totalNodes = nodes.length;
 const spacing = width / totalNodes;
@@ -23,12 +24,16 @@ const nodeSendBuffers = {}
 const nodeReceiveBuffers = {}
 const nodePositions = {}
 
-const stateColors = {
-  Closed0: "#e63946",       // Red
-  SynSent0: "#f4a261",      // Orange
-  SynReceived0: "#2a9d8f",  // Teal
-  Established0: "#457b9d",  // Blue
-};
+function getPacketColor(packet) {
+  if (packet.in(DataPacket)) {
+    return "#E49DFB"
+  } else if (packet.in(AckPacket)) {
+    return "#B698D7"
+  } else if (packet.in(FinPacket)) {
+    return "#986CC6"
+  }
+  return "white"
+}
 
 
 function currentStateToString() {
@@ -40,30 +45,60 @@ function updateNodes() {
   nodeElements.nodeLabels.forEach((label, idx) => {
     label.setText(`Node ${idx}: ${getCurStateText(idx)}`);
   });
-  nodeElements.nodeBoxes.forEach((box, idx) => {
-    box.setColor(stateColors[getCurStateText(idx)]);
-  });
+
   nodes.forEach((_, idx) => getCurrentBufferData(idx))
 
   createPacketsInNetwork(instances[currentState].atoms().filter((atom) => atom.id() === `Network0`)[0]);
 }
+
+function getPacketDisplayName(packAtom) {
+  packetPresent = packAtom.toString()
+  if (packAtom.in(DataPacket)) {
+    packetPresent += " (Data)"
+  } else if (packAtom.in(AckPacket)) {
+    packetPresent += " (Ack)"
+    color = "#B698D7"
+  } else if (packAtom.in(FinPacket)) {
+    packetPresent += " (Fin)"
+    color = "#986CC6"
+  }
+  return packetPresent
+}
+
 
 function createPacketsInNetwork(network) {
   networkPackets.forEach((pack) => {
     stage.remove(pack)
   });
 
-  const netLabel = new TextBox({
-    text: network.packets.toString(),
-    coords: {
-      x: NETWORK_POS[0] + 50,
-      y: NETWORK_POS[1] + 100,
-    },
-    fontSize: 12,
-    color: "black",
+  network.packets.tuples().map((packet) => {
+    const packAtom = packet.atoms()[0]
+
+    const packBox = new Rectangle({
+      coords: {
+        x: NETWORK_POS[0],
+        y: NETWORK_POS[1] + 88,
+      },
+      color: getPacketColor(packAtom),
+      width: 100,
+      height: 25
+    });
+    stage.add(packBox);
+    networkPackets.push(packBox)
+
+    const netLabel = new TextBox({
+      text: getPacketDisplayName(packAtom),
+      coords: {
+        x: NETWORK_POS[0] + 50,
+        y: NETWORK_POS[1] + 100,
+      },
+      fontSize: 13,
+      color: "white",
+      fontWeight: "bold"
+    });
+    networkPackets.push(netLabel)
+    stage.add(netLabel);
   });
-  networkPackets.push(netLabel)
-  stage.add(netLabel);
 }
 
 // Thank you to Sarah Ridley for these functions!
@@ -86,8 +121,8 @@ function decrementState() {
 // State label
 var stateLabel = new TextBox({
   text: () => currentStateToString(),
-  coords: { x: width / 2, y: 510 },
-  fontSize: 20,
+  coords: { x: NETWORK_POS[0] + 50, y: 410 },
+  fontSize: 16,
   fontWeight: "Bold",
   color: "black",
 });
@@ -96,8 +131,8 @@ stage.add(stateLabel);
 // Previous Button
 var prevButton = new TextBox({
   text: "▬",
-  color: "gray",
-  coords: { x: width / 2 - 75, y: 550 },
+  color: "#1bb7f5",
+  coords: { x: NETWORK_POS[0] + 50 - 75, y: 470 },
   fontSize: 200,
   events: [
     {
@@ -112,10 +147,10 @@ stage.add(prevButton);
 
 var prevButtonLabel = new TextBox({
   text: "Previous State",
-  coords: { x: width / 2 - 75, y: 570 },
+  coords: { x: NETWORK_POS[0] + 50 - 75, y: 490 },
   fontSize: 15,
   fontWeight: "Bold",
-  color: "white",
+  color: "black",
   events: [
     {
       event: "click",
@@ -130,8 +165,8 @@ stage.add(prevButtonLabel);
 // Next Button
 var nextButton = new TextBox({
   text: "▬",
-  color: "gray",
-  coords: { x: width / 2 + 75, y: 550 },
+  color: "#1bb7f5",
+  coords: { x: NETWORK_POS[0] + 50 + 75, y: 470 },
   fontSize: 200,
   events: [
     {
@@ -146,10 +181,10 @@ stage.add(nextButton);
 
 var nextButtonLabel = new TextBox({
   text: "Next State",
-  coords: { x: width / 2 + 75, y: 570 },
+  coords: { x: NETWORK_POS[0] + 50 + 75, y: 490 },
   fontSize: 15,
   fontWeight: "Bold",
-  color: "white",
+  color: "black",
   events: [
     {
       event: "click",
@@ -168,6 +203,7 @@ const networkLabel = new TextBox({
     y: NETWORK_POS[1],
   },
   fontSize: 14,
+  fontWeight: "bold",
   color: "black",
 });
 stage.add(networkLabel);
@@ -177,10 +213,37 @@ const networkBox = new Rectangle({
     y: NETWORK_POS[1] + 10,
   },
   width: 100,
-  height: 200,
+  height: 240,
   color: "whitesmoke",
+  borderColor: "whitesmoke"
 });
 stage.add(networkBox);
+
+// Title bar
+
+const titleBox = new Rectangle({
+  coords: {
+    x: NETWORK_POS[0] + 50 - (width / 2),
+    y: NETWORK_POS[1] - 100,
+  },
+  width: width,
+  height: 50,
+  color: "#7dcc41",
+});
+stage.add(titleBox);
+const titleLabel = new TextBox({
+  text: "TCP Model",
+  coords: {
+    x: NETWORK_POS[0] + 50,
+    y: NETWORK_POS[1] - 75,
+  },
+  fontSize: 16,
+  fontWeight: "Bold",
+  color: "black",
+});
+stage.add(titleLabel);
+
+
 
 function getNodeInstanceFromId(idx) {
   const instance = instances[currentState];
@@ -210,23 +273,33 @@ function getSpecificBufferData(idx, nodeBufferDict, buff, offset = 0) {
   var count = 0;
   buff.tuples().map((packet) => {
     const packAtom = packet.atoms()[0]
-    var color = "black";
-    if (packAtom.in(DataPacket)) {
-      color = "green";
-    }
+
+    const packBox = new Rectangle({
+      coords: {
+        x: nodePositions[idx][0] - 50,
+        y: nodePositions[idx][1] + (10 * count) + offset - 12,  // stack inside the SendBuffer box
+      },
+      color: getPacketColor(packAtom),
+      width: 100,
+      height: 25
+    });
+    stage.add(packBox);
     const buffLabel = new TextBox({
-      text: packAtom.toString(),
+      text: getPacketDisplayName(packAtom),
       coords: {
         x: nodePositions[idx][0],
         y: nodePositions[idx][1] + (10 * count) + offset,  // stack inside the SendBuffer box
       },
-      fontSize: 10,
-      color: color,
+      fontSize: 13,
+      fontWeight: "bold",
+      color: "white",
     });
     stage.add(buffLabel);
+
     count += 1;
     // We add the label to the nodeSendBuffers array:
     nodeBufferDict[idx].push(buffLabel);
+    nodeBufferDict[idx].push(packBox);
   });
 }
 
@@ -249,8 +322,8 @@ function genBufferBox(centerX, centerY, yOffset, label, labelOffsetY = -15) {
   const labelBox = new TextBox({
     text: label,
     coords: { x: bufferX + (NODE_SIZE - 15) / 2, y: bufferY + labelOffsetY },
-    fontSize: 12,
-    color: "white",
+    fontSize: 14,
+    color: "#1bb7f5",
     fontWeight: "bold",
   });
   stage.add(labelBox);
@@ -260,12 +333,12 @@ nodes.forEach((_, idx) => {
   const centerX = spacing * idx + spacing / 2;
   const centerY = height / 4;
 
-
   const colorBox = new Rectangle({
     coords: { x: centerX - NODE_SIZE / 2, y: centerY - NODE_SIZE / 2 },
     width: NODE_SIZE,
     height: NODE_SIZE * 1.25,
-    color: stateColors[getCurStateText(idx)],
+    color: "white",
+    borderColor: "whitesmoke"
   });
   stage.add(colorBox);
 
