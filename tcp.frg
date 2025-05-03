@@ -1,7 +1,7 @@
 #lang forge/temporal
 
-option max_tracelength 30
-option min_tracelength 23
+option max_tracelength 40
+option min_tracelength 30
 
 option solver Glucose
 // making it so that the visualization loads in automatically
@@ -381,10 +381,28 @@ pred Receive[node: Node] {
                     }
                 }
             }
+            else (node.curState = LastAck and packet in AckPacket) => {
+                node.curState' = Closed
+                node.connectedNode' = none
+                node.ackNum' = node.ackNum
+                node.seqNum' = node.seqNum
+                node.send_next' = node.send_next
+                node.recv_next' = node.recv_next
+                // node.receiveBuffer' = node.receiveBuffer
+                node.sendBuffer' = none
 
-            else (node.curState = Established and packet in AckPacket) => {
+                all p: Packet - packet | {
+                    packetDoesNotChange[p]
+                }
+            }
 
-                node.curState' = node.curState
+            else (packet in AckPacket) => {
+
+                // node.curState' = node.curState
+                node.curState = FinWait1 => {
+                    node.curState' = FinWait2
+                } else node.curState' = node.curState
+
                 node.connectedNode' = node.connectedNode
                 node.ackNum' = node.ackNum
                 node.seqNum' = node.seqNum
@@ -425,8 +443,8 @@ pred Receive[node: Node] {
             }
 
             // second condition for closing
-            else (node.curState = FinWait2 and packet in FinPacket) => {
-                node.curState' = Closed
+            else (node.curState = FinWait1 and packet in FinPacket) => {
+                node.curState' = FinWait2
                 node.ackNum' = node.ackNum
                 // node.ackNum' = packet.pSeqNum
                 node.recv_next' = add[packet.pSeqNum, 1]
@@ -434,17 +452,46 @@ pred Receive[node: Node] {
                 node.seqNum' = node.seqNum
                 node.send_next' = node.send_next
                 // node.receiveBuffer' = node.receiveBuffer
+                node.sendBuffer' = node.sendBuffer
+                all p: Packet | {
+                    packetDoesNotChange[p]
+                }
 
-                one ack: AckPacket | {
-                    ack.src' = node
-                    ack.dst' = srcNode
-                    ack.pSeqNum' = node.send_next'
-                    ack.pAckNum' = node.recv_next'
-                    node.sendBuffer' = node.sendBuffer + ack
-                    all p: Packet - ack | {
+                // one ack: AckPacket | {
+                //     ack.src' = node
+                //     ack.dst' = srcNode
+                //     ack.pSeqNum' = node.send_next'
+                //     ack.pAckNum' = node.recv_next'
+                //     node.sendBuffer' = node.sendBuffer + ack
+                //     all p: Packet - ack | {
+                //         packetDoesNotChange[p]
+                //     }
+                // }                 
+            }
+
+            else (node.curState = FinWait2 and packet in FinPacket) => {
+                node.curState' = Closed
+                node.ackNum' = node.ackNum
+                // node.ackNum' = packet.pSeqNum
+                node.recv_next' = add[packet.pSeqNum, 1]
+                // node.connectedNode' = node.connectedNode
+                node.connectedNode' = none
+                node.seqNum' = node.seqNum
+                node.send_next' = node.send_next
+                // node.receiveBuffer' = node.receiveBuffer
+                // node.sendBuffer' = none
+
+                one packet: AckPacket | {
+                    packet.src' = node
+                    packet.dst' = srcNode
+                    packet.pSeqNum' = node.send_next'
+                    packet.pAckNum' = node.recv_next'
+                    node.sendBuffer' = node.sendBuffer + packet
+
+                    all p: Packet - packet | {
                         packetDoesNotChange[p]
                     }
-                }                 
+                }
             }
 
             // Frame conditions for all other nodes and packets
