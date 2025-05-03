@@ -91,10 +91,10 @@ pred validState {
     }
 
     // Any node with a connected node has to be connected back:
-    all n: Node | {
-        n.curState = Established implies n.connectedNode != none
-        n.curState = Established implies n.connectedNode.connectedNode = n
-    }
+    // all n: Node | {
+    //     n.curState = Established implies n.connectedNode != none
+    //     n.curState = Established implies n.connectedNode.connectedNode = n
+    // }
 
     // A nodes send buffer can only contain packets that have the node as the source
     all n: Node | {
@@ -139,12 +139,12 @@ pred init {
         n.curState = Closed
     }
     // The network is empty:
-    Network.packets = none
+    no Network.packets
     
     // All nodes should be empty, and not connected:
     all n: Node | {
-        n.receiveBuffer = none
-        n.sendBuffer = none
+        no n.receiveBuffer
+        no n.sendBuffer
         n.connectedNode = none
     }
     
@@ -474,24 +474,23 @@ pred Receive[node: Node] {
                 node.ackNum' = node.ackNum
                 // node.ackNum' = packet.pSeqNum
                 node.recv_next' = add[packet.pSeqNum, 1]
-                // node.connectedNode' = node.connectedNode
                 node.connectedNode' = none
                 node.seqNum' = node.seqNum
                 node.send_next' = node.send_next
                 // node.receiveBuffer' = node.receiveBuffer
                 // node.sendBuffer' = none
 
-                one packet: AckPacket | {
-                    packet.src' = node
-                    packet.dst' = srcNode
-                    packet.pSeqNum' = node.send_next'
-                    packet.pAckNum' = node.recv_next'
-                    node.sendBuffer' = node.sendBuffer + packet
+                // one packet: AckPacket | {
+                //     packet.src' = node
+                //     packet.dst' = srcNode
+                //     packet.pSeqNum' = node.send_next'
+                //     packet.pAckNum' = node.recv_next'
+                //     node.sendBuffer' = node.sendBuffer + packet
 
-                    all p: Packet - packet | {
-                        packetDoesNotChange[p]
-                    }
-                }
+                //     all p: Packet - packet | {
+                //         packetDoesNotChange[p]
+                //     }
+                // }
             }
 
             // Frame conditions for all other nodes and packets
@@ -626,8 +625,8 @@ pred moves[sender, receiver: Node]{
     or doNothing
 
     all n: Node | {
-        // some n.sendBuffer => eventually Send[n]
-        // some n.receiveBuffer => eventually Receive[n]
+        some n.sendBuffer => eventually Send[n]
+        some n.receiveBuffer => eventually Receive[n]
     }
 
     some Network.packets => eventually Transfer
