@@ -1,7 +1,7 @@
 #lang forge/temporal
 
 option max_tracelength 40
-option min_tracelength 30
+option min_tracelength 24
 
 option solver Glucose
 // making it so that the visualization loads in automatically
@@ -111,9 +111,9 @@ pred validState {
     }
 
     // If all nodes are closed, then the network should be empty
-    (#{n : Node | n.curState = Closed} = #Node) implies {
-        Network.packets = none
-    }
+    // (#{n : Node | n.curState = Closed} = #Node) implies {
+    //     Network.packets = none
+    // }
 }
 
 // Predicate that ensures that all the nodes are "distinct" within the network
@@ -236,7 +236,7 @@ pred userSend[sender: Node] {
     nodeDoesNotChange[sender.connectedNode]
     Network.packets' = Network.packets
 
-    eventually Send[sender]
+    // eventually Send[sender]
 }
 
 // Predicate that moves packets from the sender's send buffer to the network.
@@ -443,31 +443,31 @@ pred Receive[node: Node] {
             }
 
             // second condition for closing
-            else (node.curState = FinWait1 and packet in FinPacket) => {
-                node.curState' = FinWait2
-                node.ackNum' = node.ackNum
-                // node.ackNum' = packet.pSeqNum
-                node.recv_next' = add[packet.pSeqNum, 1]
-                node.connectedNode' = node.connectedNode
-                node.seqNum' = node.seqNum
-                node.send_next' = node.send_next
-                // node.receiveBuffer' = node.receiveBuffer
-                node.sendBuffer' = node.sendBuffer
-                all p: Packet | {
-                    packetDoesNotChange[p]
-                }
+            // else (node.curState = FinWait1 and packet in FinPacket) => {
+            //     node.curState' = FinWait2
+            //     node.ackNum' = node.ackNum
+            //     // node.ackNum' = packet.pSeqNum
+            //     node.recv_next' = add[packet.pSeqNum, 1]
+            //     node.connectedNode' = node.connectedNode
+            //     node.seqNum' = node.seqNum
+            //     node.send_next' = node.send_next
+            //     // node.receiveBuffer' = node.receiveBuffer
+            //     node.sendBuffer' = node.sendBuffer
+            //     all p: Packet | {
+            //         packetDoesNotChange[p]
+            //     }
 
-                // one ack: AckPacket | {
-                //     ack.src' = node
-                //     ack.dst' = srcNode
-                //     ack.pSeqNum' = node.send_next'
-                //     ack.pAckNum' = node.recv_next'
-                //     node.sendBuffer' = node.sendBuffer + ack
-                //     all p: Packet - ack | {
-                //         packetDoesNotChange[p]
-                //     }
-                // }                 
-            }
+            //     // one ack: AckPacket | {
+            //     //     ack.src' = node
+            //     //     ack.dst' = srcNode
+            //     //     ack.pSeqNum' = node.send_next'
+            //     //     ack.pAckNum' = node.recv_next'
+            //     //     node.sendBuffer' = node.sendBuffer + ack
+            //     //     all p: Packet - ack | {
+            //     //         packetDoesNotChange[p]
+            //     //     }
+            //     // }                 
+            // }
 
             else (node.curState = FinWait2 and packet in FinPacket) => {
                 node.curState' = Closed
@@ -547,6 +547,11 @@ pred Close[sender, receiver: Node] {
             }
         }
         sender.curState' = LastAck
+
+        // eventually {
+        //     sender.curState = Closed
+        //     receiver.curState = Closed
+        // }
     }
 
     // The sender will initiate the close connection.
@@ -621,8 +626,8 @@ pred moves[sender, receiver: Node]{
     or doNothing
 
     all n: Node | {
-        some n.sendBuffer => eventually Send[n]
-        some n.receiveBuffer => eventually Receive[n]
+        // some n.sendBuffer => eventually Send[n]
+        // some n.receiveBuffer => eventually Receive[n]
     }
 
     some Network.packets => eventually Transfer
@@ -649,13 +654,30 @@ pred traces {
         always moves[sender, receiver]
         eventually Connected[sender, receiver]
         eventually Close[sender, receiver]
-        // eventually Close[receiver, sender]
-        eventually userSend[sender]
+        eventually Close[receiver, sender]
+        // eventually userSend[sender]
+        // next_state eventually (sender.curState = Closed and receiver.curState = Closed)
+    }
+}
+
+pred traces2 {
+    always {validState}
+    some disj sender, receiver: Node | {
+        Connected[sender, receiver]
+        no sender.receiveBuffer
+        no receiver.receiveBuffer
+        no sender.sendBuffer
+        no receiver.sendBuffer
+        no Network.packets
+        always moves[sender, receiver]
+        eventually Close[sender, receiver]
+        eventually Close[receiver, sender]
     }
 }
 
 run {
     traces
+    // traces2
 } for exactly 2 Node, exactly 4 Packet
 
 pred senderAndReceiver[n1, n2: Node]{
