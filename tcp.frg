@@ -90,11 +90,10 @@ pred validState {
         p.src != none implies p.src != p.dst
     }
 
-    // Any node with a connected node has to be connected back:
-    // all n: Node | {
-    //     n.curState = Established implies n.connectedNode != none
-    //     n.curState = Established implies n.connectedNode.connectedNode = n
-    // }
+    // Any node that is established must be connected to another node
+    all n: Node | {
+        n.curState = Established implies n.connectedNode != none
+    }
 
     // A nodes send buffer can only contain packets that have the node as the source
     all n: Node | {
@@ -111,9 +110,9 @@ pred validState {
     }
 
     // If all nodes are closed, then the network should be empty
-    // (#{n : Node | n.curState = Closed} = #Node) implies {
-    //     Network.packets = none
-    // }
+    (#{n : Node | n.curState = Closed} = #Node) implies {
+        Network.packets = none
+    }
 }
 
 // Predicate that ensures that all the nodes are "distinct" within the network
@@ -383,20 +382,6 @@ pred Receive[node: Node] {
             }
             else (node.curState = LastAck and packet in AckPacket) => {
                 becomeInit
-                // node.curState' = Closed
-                // node.connectedNode.curState' = node.connectedNode.curState
-                // // node.connectedNode.sendBuffer' = node.connectedNode.sendBuffer
-                // // node.connectedNode.receiveBuffer' = node.connectedNode.receiveBuffer
-                // node.ackNum' = node.ackNum
-                // node.seqNum' = node.seqNum
-                // node.send_next' = node.send_next
-                // node.recv_next' = node.recv_next
-                // // node.receiveBuffer' = node.receiveBuffer
-                // node.sendBuffer' = none
-
-                // all p: Packet - packet | {
-                //     packetDoesNotChange[p]
-                // }
             }
             else (packet in AckPacket) => {
 
@@ -567,66 +552,7 @@ pred Close[sender, receiver: Node] {
         }
         sender.curState' = LastAck
 
-        // eventually {
-        //     sender.curState = Closed
-        //     receiver.curState = Closed
-        // }
     }
-
-    // The sender will initiate the close connection.
-    // one packet: Packet | {
-    //     packet.src = sender
-    //     packet.dst = receiver
-    //     packet.pSeqNum = sender.seqNum + 1
-    //     packet.pAckNum = sender.ackNum
-    //     sender.sendBuffer' = sender.sendBuffer + packet
-
-    //     // The sender will go into the FinWait1 state.
-    //     sender.curState' = FinWait1 // Is this weird because it will never actually happen?
-    // }
-
-    // one ackPacket: Packet | {
-    //     ackPacket.src = receiver
-    //     ackPacket.dst = sender
-    //     ackPacket.pSeqNum = receiver.seqNum + 1
-    //     ackPacket.pAckNum = sender.seqNum + 1
-    //     receiver.sendBuffer' = receiver.sendBuffer + ackPacket
-
-    //     // The receiver will go into the CloseWait state.
-    //     receiver.curState' = CloseWait // Is this weird because it will never actually happen?
-    // }
-
-    // Connected[sender, receiver]
-
-    // They are both closed:
-    // sender.curState' = Closed
-    // receiver.curState' = Closed
-    // // They are not connected to anything:
-    // sender.connectedNode' = none
-    // receiver.connectedNode' = none
-    // // They have no packets in their buffers:
-    // sender.receiveBuffer' = none
-    // sender.sendBuffer' = none
-    // receiver.receiveBuffer' = none
-    // receiver.sendBuffer' = none
-}
-
-pred dummyClose {
-    // This is a dummy close that does not actually do anything
-    // It is used to allow for lasso traces
-    all n: Node | {
-        n.curState = Closed
-        n.receiveBuffer = none
-        n.sendBuffer = none
-        n.connectedNode = none
-    }
-    // all p: Packet | {
-    //     p.src = none
-    //     p.dst = none
-    //     p.pSeqNum = none
-    //     p.pAckNum = none
-    // }
-    Network.packets = none
 }
 
 pred becomeInit {
