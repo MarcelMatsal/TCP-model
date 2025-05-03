@@ -6,6 +6,7 @@ const stage = new Stage();
 var currentState = 0;
 
 const NODE_SIZE = width / 3;
+const NETWORK_POS = [width / 2 - 50, height / 5]
 const nodes = Node.atoms();
 const totalNodes = nodes.length;
 const spacing = width / totalNodes;
@@ -15,6 +16,8 @@ const nodeElements = {
   "nodeLabels": [],
   "nodeBoxes": [],
 };
+
+const networkPackets = []
 
 const nodeSendBuffers = {}
 const nodeReceiveBuffers = {}
@@ -41,6 +44,26 @@ function updateNodes() {
     box.setColor(stateColors[getCurStateText(idx)]);
   });
   nodes.forEach((_, idx) => getCurrentBufferData(idx))
+
+  createPacketsInNetwork(instances[currentState].atoms().filter((atom) => atom.id() === `Network0`)[0]);
+}
+
+function createPacketsInNetwork(network) {
+  networkPackets.forEach((pack) => {
+    stage.remove(pack)
+  });
+
+  const netLabel = new TextBox({
+    text: network.packets.toString(),
+    coords: {
+      x: NETWORK_POS[0] + 50,
+      y: NETWORK_POS[1] + 100,
+    },
+    fontSize: 12,
+    color: "black",
+  });
+  networkPackets.push(netLabel)
+  stage.add(netLabel);
 }
 
 // Thank you to Sarah Ridley for these functions!
@@ -138,6 +161,27 @@ var nextButtonLabel = new TextBox({
 });
 stage.add(nextButtonLabel);
 
+const networkLabel = new TextBox({
+  text: "Network",
+  coords: {
+    x: NETWORK_POS[0] + 50,
+    y: NETWORK_POS[1],
+  },
+  fontSize: 14,
+  color: "black",
+});
+stage.add(networkLabel);
+const networkBox = new Rectangle({
+  coords: {
+    x: NETWORK_POS[0],
+    y: NETWORK_POS[1] + 10,
+  },
+  width: 100,
+  height: 200,
+  color: "whitesmoke",
+});
+stage.add(networkBox);
+
 function getNodeInstanceFromId(idx) {
   const instance = instances[currentState];
   return instance.atoms().filter((atom) => atom.id() === `Node${idx}`)[0];
@@ -216,13 +260,11 @@ nodes.forEach((_, idx) => {
   const centerX = spacing * idx + spacing / 2;
   const centerY = height / 4;
 
-  const boxWidth = NODE_SIZE;
-  const boxHeight = NODE_SIZE;
 
   const colorBox = new Rectangle({
-    coords: { x: centerX - boxWidth / 2, y: centerY - boxHeight / 2 },
-    width: boxWidth,
-    height: boxHeight * 1.25,
+    coords: { x: centerX - NODE_SIZE / 2, y: centerY - NODE_SIZE / 2 },
+    width: NODE_SIZE,
+    height: NODE_SIZE * 1.25,
     color: stateColors[getCurStateText(idx)],
   });
   stage.add(colorBox);
@@ -244,5 +286,6 @@ nodes.forEach((_, idx) => {
   nodeElements.nodeLabels.push(nodeLabel);
   nodePositions[idx] = [centerX, centerY]
 });
+
 
 stage.render(svg);
