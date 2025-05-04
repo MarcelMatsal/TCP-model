@@ -1,29 +1,23 @@
 /*
   Script for visualizing TCP model in Sterling.
 */
-
 const stage = new Stage();
-stage.backgroundColor = "white"
 var currentState = 0;
 
 const NODE_SIZE = width / 3;
 const NETWORK_POS = [width / 2 - 100, height / 7]
 const nodes = Node.atoms();
-const totalNodes = nodes.length;
-const spacing = width / totalNodes;
+const spacing = width / nodes.length;
 
-// We the elements of nodes that we keep track of in the visualization.
-const nodeElements = {
-  "nodeLabels": [],
-  "nodeBoxes": [],
-};
 
 const networkPackets = []
 
 const nodeSendBuffers = {}
 const nodeReceiveBuffers = {}
 const nodePositions = {}
+const nodeNextLabels = {}
 
+// Packet Helpers
 function getPacketColor(packet) {
   if (packet.in(DataPacket)) {
     return "#E49DFB"
@@ -33,22 +27,6 @@ function getPacketColor(packet) {
     return "#986CC6"
   }
   return "white"
-}
-
-
-function currentStateToString() {
-  return `Current Step: ${currentState}`;
-}
-
-// Resetting the labels for each node on change of state.
-function updateNodes() {
-  nodeElements.nodeLabels.forEach((label, idx) => {
-    label.setText(`Node ${idx}: ${getCurStateText(idx)}`);
-  });
-
-  nodes.forEach((_, idx) => getCurrentBufferData(idx))
-
-  createPacketsInNetwork(instances[currentState].atoms().filter((atom) => atom.id() === `Network0`)[0]);
 }
 
 function getPacketDisplayName(packAtom) {
@@ -66,6 +44,20 @@ function getPacketDisplayName(packAtom) {
     packetPresent += ` Seq: ${packAtom.pSeqNum.toString()} Ack: ${packAtom.pAckNum.toString()}`
   }
   return packetPresent
+}
+
+// Resetting the labels for each node on change of state.
+function updateNodes() {
+  nodes.forEach((_, idx) => {
+    getCurrentBufferData(idx)
+    nodeNextLabels[idx].forEach((lab) => {
+      stage.remove(lab)
+    });
+    genNodeNextLabels(idx, "Send_Next")
+    genNodeNextLabels(idx, "Recv_Next")
+  });
+
+  createPacketsInNetwork(instances[currentState].atoms().filter((atom) => atom.id() === `Network0`)[0]);
 }
 
 
@@ -125,7 +117,7 @@ function decrementState() {
 
 // State label
 var stateLabel = new TextBox({
-  text: () => currentStateToString(),
+  text: () => `Current Step: ${currentState}`,
   coords: { x: NETWORK_POS[0] + 100, y: 410 },
   fontSize: 16,
   fontWeight: "Bold",
@@ -334,6 +326,40 @@ function genBufferBox(centerX, centerY, yOffset, label, labelOffsetY = -15) {
   stage.add(labelBox);
 }
 
+function genNodeLabels(idx) {
+  const nodeLabel = new TextBox({
+    text: () => `Node ${idx}: ${getCurStateText(idx)}`,
+    coords: { x: centerX, y: centerY - NODE_SIZE / 3 },
+    fontSize: 15,
+    fontWeight: "Bold",
+    color: "black",
+  });
+  stage.add(nodeLabel);
+  nodeLabels[idx].push(nodeLabel);
+
+  genNodeNextLabels(idx, "Send_Next")
+  genNodeNextLabels(idx, "Recv_Next")
+}
+
+function genNodeNextLabels(idx, labelStr) {
+  const nodeInst = getNodeInstanceFromId(idx)
+  const field = (labelStr == "Send_Next" ? nodeInst.send_next : nodeInst.recv_next)
+  const offset = (labelStr == "Send_Next" ? 0 : 20)
+
+  const fieldLabel = new TextBox({
+    text: `${labelStr}: ${field.toString()}`,
+    coords: {
+      x: nodePositions[idx][0],
+      y: nodePositions[idx][1] + offset + NODE_SIZE - 50
+    }, fontSize: 14,
+    color: "#1bb7f5",
+    fontWeight: "bold",
+  });
+  stage.add(fieldLabel);
+
+  nodeNextLabels[idx].push(fieldLabel)
+}
+
 nodes.forEach((_, idx) => {
   var xOff = 0
 
@@ -347,11 +373,10 @@ nodes.forEach((_, idx) => {
   const centerY = height / 4;
 
 
-
   const colorBox = new Rectangle({
     coords: { x: centerX - NODE_SIZE / 2, y: centerY - NODE_SIZE / 2 },
     width: NODE_SIZE,
-    height: NODE_SIZE * 1.25,
+    height: NODE_SIZE * 1.5,
     color: "white",
     borderColor: "whitesmoke"
   });
@@ -361,18 +386,10 @@ nodes.forEach((_, idx) => {
   genBufferBox(centerX, centerY, 75, "ReceiveBuffer");
   getCurrentBufferData(idx);
 
-  const nodeLabel = new TextBox({
-    text: () => `Node ${idx}: ${getCurStateText(idx)}`,
-    coords: { x: centerX, y: centerY - NODE_SIZE / 3 },
-    fontSize: 15,
-    fontWeight: "Bold",
-    color: "black",
-  });
-  stage.add(nodeLabel);
 
-  nodeElements.nodeBoxes.push(colorBox);
-  nodeElements.nodeLabels.push(nodeLabel);
   nodePositions[idx] = [centerX, centerY]
+  nodeLabels[idx] = []
+  genNodeLabels(idx);
 });
 
 
