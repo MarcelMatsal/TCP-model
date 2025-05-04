@@ -15,7 +15,7 @@ const networkPackets = []
 const nodeSendBuffers = {}
 const nodeReceiveBuffers = {}
 const nodePositions = {}
-const nodeNextLabels = {}
+const nodeLabels = {}
 
 // Packet Helpers
 function getPacketColor(packet) {
@@ -50,7 +50,7 @@ function getPacketDisplayName(packAtom) {
 function updateNodes() {
   nodes.forEach((_, idx) => {
     getCurrentBufferData(idx)
-    nodeNextLabels[idx].forEach((lab) => {
+    nodeLabels[idx].forEach((lab) => {
       stage.remove(lab)
     });
     genNodeNextLabels(idx, "Send_Next")
@@ -329,7 +329,7 @@ function genBufferBox(centerX, centerY, yOffset, label, labelOffsetY = -15) {
 function genNodeLabels(idx) {
   const nodeLabel = new TextBox({
     text: () => `Node ${idx}: ${getCurStateText(idx)}`,
-    coords: { x: centerX, y: centerY - NODE_SIZE / 3 },
+    coords: { x: nodePositions[idx][0], y: nodePositions[idx][1] - NODE_SIZE / 3 },
     fontSize: 15,
     fontWeight: "Bold",
     color: "black",
@@ -357,7 +357,7 @@ function genNodeNextLabels(idx, labelStr) {
   });
   stage.add(fieldLabel);
 
-  nodeNextLabels[idx].push(fieldLabel)
+  nodeLabels[idx].push(fieldLabel)
 }
 
 nodes.forEach((_, idx) => {
