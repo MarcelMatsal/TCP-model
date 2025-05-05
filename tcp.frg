@@ -359,7 +359,7 @@ pred Receive[node: Node] {
                 }
             }
             else (node.curState = LastAck and packet in AckPacket) => {
-                becomeInit
+                next_state init
             }
             else (packet in AckPacket) => {
 
@@ -514,31 +514,6 @@ pred Close[sender, receiver: Node] {
             }
         }
         sender.curState' = LastAck
-    }
-}
-
-// Pred that turns the states back into the init state, allowing for a lasso trace.
-pred becomeInit {
-    uniqueNodes
-    // All nodes are in closed state:
-    all n: Node | {
-        n.curState' = Closed
-    }
-    // The network is empty:
-    no Network.packets'
-    
-    // All nodes should be empty, and not connected:
-    all n: Node | {
-        no n.receiveBuffer'
-        no n.sendBuffer'
-        n.connectedNode' = none
-    }
-    
-    all packet : Packet | {
-        packet.src' = none
-        packet.dst' = none
-        packet.pSeqNum' = none
-        packet.pAckNum' = none
     }
 }
 
