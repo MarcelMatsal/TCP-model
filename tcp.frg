@@ -1,7 +1,7 @@
 #lang forge/temporal
 
 option max_tracelength 40
-option min_tracelength 24
+option min_tracelength 31
 
 option solver Glucose
 // making it so that the visualization loads in automatically
@@ -32,11 +32,7 @@ sig Node {
     var connectedNode: lone Node,
 
     var send_next: one Int,
-    // var send_una: one Int,
-    // var send_lbw: one Int,
-
     var recv_next: one Int
-    // var recv_lbr: one Int
 }
 
 // A packet in the system.
@@ -56,6 +52,7 @@ one sig Network {
     var packets: set Packet
 }
 
+// Predicate that checks a node doesn't change.
 pred nodeDoesNotChange[n: Node] {
     n.curState' = n.curState
     n.receiveBuffer' = n.receiveBuffer
@@ -64,12 +61,10 @@ pred nodeDoesNotChange[n: Node] {
     n.ackNum' = n.ackNum
     n.connectedNode' = n.connectedNode
     n.send_next' = n.send_next
-    // n.send_una' = n.send_una
-    // n.send_lbw' = n.send_lbw
     n.recv_next' = n.recv_next
-    // n.recv_lbr' = n.recv_lbr
 }
 
+// Predicate that checks a packet doesn't change.
 pred packetDoesNotChange[p: Packet] {
     p.src' = p.src
     p.dst' = p.dst
@@ -122,13 +117,6 @@ pred uniqueNodes {
     }
 }
 
-// The sender and receiver will stay connected to eachother until the connection is closed
-pred connectionMaintainedUntilClosed[sender, receiver: Node] {
-    sender.connectedNode = receiver until {sender.curState = Closed}
-    receiver.connectedNode = sender until {receiver.curState = Closed}
-}
-
-
 // The initial state of the system.
 pred init {
     // all the nodes are unique
@@ -166,7 +154,6 @@ pred Connected[node1: Node, node2: Node] {
     node1.connectedNode = node2
     node2.connectedNode = node1
 }
-
 
 // Predicate used to open a connection and maintain
 // proper state transitions and constraints.
@@ -213,10 +200,8 @@ pred Open[sender, receiver: Node] {
 // We send packet through an established connection.
 pred userSend[sender: Node] {
     Connected[sender, sender.connectedNode]
-
     sender.seqNum' = sender.seqNum
     sender.ackNum' = sender.ackNum
-    // sender.send_lbw' = sender.send_lbw + 1
     sender.send_next' = add[sender.send_next ,1]
     sender.receiveBuffer' = sender.receiveBuffer
     sender.connectedNode' = sender.connectedNode
@@ -234,8 +219,6 @@ pred userSend[sender: Node] {
 
     nodeDoesNotChange[sender.connectedNode]
     Network.packets' = Network.packets
-
-    // eventually Send[sender]
 }
 
 // Predicate that moves packets from the sender's send buffer to the network.
@@ -252,10 +235,9 @@ pred Send[sender: Node] {
     sender.send_next' = sender.send_next
     sender.recv_next' = sender.recv_next
     sender.receiveBuffer' = sender.receiveBuffer
-    sender.sendBuffer' = none
+    no sender.sendBuffer'
 
     nodeDoesNotChange[sender.connectedNode]
-    
     all p: Packet | {
         packetDoesNotChange[p]
     }
@@ -315,7 +297,6 @@ pred Receive[node: Node] {
                         packetDoesNotChange[p]
                     }
                 }
-
             }
 
             // SynReceived state: Receive ACK -> Established
@@ -356,14 +337,11 @@ pred Receive[node: Node] {
 
             // Established state: Process data, update recv_next and send ACK
             else (node.curState = Established and packet in DataPacket) => {
-                // should state stay the same here?
-
                 node.curState' = node.curState
                 node.connectedNode' = node.connectedNode
                 node.ackNum' = node.ackNum
                 node.seqNum' = node.seqNum
                 node.send_next' = node.send_next
-                node.receiveBuffer' = node.receiveBuffer
 
                 // Only receive if in order
                 node.recv_next' = add[packet.pSeqNum, 1]
@@ -388,24 +366,9 @@ pred Receive[node: Node] {
                 // node.curState' = node.curState
                 node.curState = FinWait1 => {
                     node.curState' = FinWait2
-                } else (node.curState = LastAck) => {
-                    // all n: Node - node | nodeDoesNotChange[n]
-                    // next_state init
-                    all n: Node | {
-                        no n.receiveBuffer' 
-                        no n.sendBuffer' 
-                        n.curState' = Closed
-                        no n.connectedNode' 
-                    }
-                    no Network.packets'
-                    all p: Packet | {
-                        no p.src'
-                        no p.dst'
-                        no p.pSeqNum'
-                        no p.pAckNum'
-                    }
-
-                } else node.curState' = node.curState
+                }  else (node.curState = Established) => {
+                    node.curState' = node.curState
+                }
                 node.connectedNode' = node.connectedNode
                 node.ackNum' = node.ackNum
                 node.seqNum' = node.seqNum
@@ -551,13 +514,11 @@ pred Close[sender, receiver: Node] {
             }
         }
         sender.curState' = LastAck
-
     }
 }
 
+// Pred that turns the states back into the init state, allowing for a lasso trace.
 pred becomeInit {
-    // pred that turns the states back into the init state, allowing for a lasso trace
-    
     uniqueNodes
     // All nodes are in closed state:
     all n: Node | {
@@ -593,15 +554,13 @@ pred moves[sender, receiver: Node]{
     Close[receiver, sender] or
     userSend[sender] or
     userSend[receiver]
-    // becomeInit
-    // or doNothing
 
-    // all n: Node | {
-    //     some n.sendBuffer => eventually Send[n]
-    //     some n.receiveBuffer => eventually Receive[n]
-    // }
+    all n: Node | {
+        some n.sendBuffer => eventually Send[n]
+        some n.receiveBuffer => eventually Receive[n]
+    }
 
-    // some Network.packets => eventually Transfer
+    some Network.packets => eventually Transfer
 }
 
 pred doNothing {
@@ -618,17 +577,16 @@ pred traces {
     init
     always {validState}
     some disj sender, receiver: Node | {
-        always {validState} // until {(sender.curState = FinWait2 and receiver.curState = Closed) or (sender.curState = Closed and receiver.curState = FinWait2) }
         eventually Open[sender, receiver]
         eventually Send[sender]
         eventually Transfer
-        eventually Receive[receiver]
-        always moves[sender, receiver]
         eventually Connected[sender, receiver]
+        eventually Receive[receiver]
+        eventually userSend[sender]
+
+        always moves[sender, receiver]
         eventually Close[sender, receiver]
         eventually Close[receiver, sender]
-        // eventually userSend[sender]
-        // next_state eventually (sender.curState = Closed and receiver.curState = Closed)
     }
 }
 
@@ -650,79 +608,3 @@ pred traces2 {
 run {
     traces
 } for exactly 2 Node, exactly 4 Packet
-
-// pred senderAndReceiver[n1, n2: Node]{
-//     // temporally the sneder and the reciever should only be one and they should not change roles throughout the trace
-//     always {
-//         // one should be the sender and the other should not be
-//         isSender[n1] or isSender[n2]
-//         not (isSender[n1] and isSender[n2])
-//         // one should be the receiveer and the other should not be
-//         isReceiver[n1] or isReceiver[n2]
-//         not (isReceiver[n1] and isReceiver[n2])
-
-//         // if one is the sender the other should be the receiver
-//         isSender[n1] implies {
-//             isReceiver[n2]
-//             // these roles should hold throughout time
-//             next_state isReceiver[n2]
-//             next_state isSender[n1]
-//              }
-//         isSender[n2] implies {
-//             isReceiver[n1]
-//             // these roles should hold throughout time
-//             next_state isReceiver[n1]
-//             next_state isSender[n2]
-//             }
-//     }
-// }
-
-
-// pred isSender[n: Node] {
-//     // predicate that defines a node to be the one that sends the data
-
-    
-
-
-
-// }
-
-// pred isReceiver[n: Node] {
-//     // predicate that defines a node to be the one that recieves the data
-
-
-
-
-// }
-
-
-// THESE possible actions should check some sort of action/boolean to make sure they can occur
-
-// run BasicTrace: {
-//     // things that constrain the runs and ensure validity
-//     init
-//     validState
-//     // things that constrain the actions that happen
-//     always {
-//         all disj n1, n2: Node | {
-
-//             // one of them must be the sender and the other the receiver
-//             senderAndReceiver[n1,n2]
-
-//             // possible actions to take
-//             // three step handshake, send info or close connection
-//             threeStepHandshake[n1, n2] or sendInfo[n1, n2] or closeConnection[n1, n2] or doNothing
-
-//             // if a connection is ever opened then it must close eventually
-//             // (connectionOpened could be like a flag)
-//             (connectionOpened[n1] and connectionOpened[n2]) implies eventually {closeConnection[n1, n2]}
-//         }
-//     }
-// } for 2 Node
-
-
-
-
-// run {
-//     // traces for ...
-// }

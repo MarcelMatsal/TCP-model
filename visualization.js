@@ -53,8 +53,7 @@ function updateNodes() {
     nodeLabels[idx].forEach((lab) => {
       stage.remove(lab)
     });
-    genNodeNextLabels(idx, "Send_Next")
-    genNodeNextLabels(idx, "Recv_Next")
+    genNodeLabels(idx);
   });
 
   createPacketsInNetwork(instances[currentState].atoms().filter((atom) => atom.id() === `Network0`)[0]);
@@ -111,6 +110,9 @@ function decrementState() {
   if (currentState != 0) {
     currentState -= 1;
   }
+  if (currentState == 0) {
+    currentState = instances.length - 1;
+  }
   updateNodes();
   stage.render(svg);
 }
@@ -118,7 +120,7 @@ function decrementState() {
 // State label
 var stateLabel = new TextBox({
   text: () => `Current Step: ${currentState}`,
-  coords: { x: NETWORK_POS[0] + 100, y: 410 },
+  coords: { x: NETWORK_POS[0] + 100, y: 410 + height / 6 },
   fontSize: 16,
   fontWeight: "Bold",
   color: "black",
@@ -129,7 +131,7 @@ stage.add(stateLabel);
 var prevButton = new TextBox({
   text: "▬",
   color: "#1bb7f5",
-  coords: { x: NETWORK_POS[0] + 100 - 75, y: 470 },
+  coords: { x: NETWORK_POS[0] + 100 - 75, y: 470 + height / 6 },
   fontSize: 200,
   events: [
     {
@@ -144,7 +146,7 @@ stage.add(prevButton);
 
 var prevButtonLabel = new TextBox({
   text: "Previous State",
-  coords: { x: NETWORK_POS[0] + 100 - 75, y: 490 },
+  coords: { x: NETWORK_POS[0] + 100 - 75, y: 490 + height / 6 },
   fontSize: 15,
   fontWeight: "Bold",
   color: "black",
@@ -163,7 +165,7 @@ stage.add(prevButtonLabel);
 var nextButton = new TextBox({
   text: "▬",
   color: "#1bb7f5",
-  coords: { x: NETWORK_POS[0] + 100 + 75, y: 470 },
+  coords: { x: NETWORK_POS[0] + 100 + 75, y: 470 + height / 6 },
   fontSize: 200,
   events: [
     {
@@ -178,7 +180,7 @@ stage.add(nextButton);
 
 var nextButtonLabel = new TextBox({
   text: "Next State",
-  coords: { x: NETWORK_POS[0] + 100 + 75, y: 490 },
+  coords: { x: NETWORK_POS[0] + 100 + 75, y: 490 + height / 6 },
   fontSize: 15,
   fontWeight: "Bold",
   color: "black",
