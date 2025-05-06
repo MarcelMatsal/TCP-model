@@ -1,7 +1,7 @@
 #lang forge/temporal
 
 option max_tracelength 40
-option min_tracelength 31
+option min_tracelength 14 //31
 
 option solver Glucose
 // making it so that the visualization loads in automatically
@@ -46,6 +46,7 @@ sig Packet {
 sig DataPacket extends Packet {}
 sig AckPacket extends Packet {}
 sig FinPacket extends Packet {}
+sig Retransmit extends Packet {}
 
 // The network of the system (holding in-transit packets).
 one sig Network {
@@ -252,7 +253,6 @@ pred Transfer {
 
             all n: Node - dest | nodeDoesNotChange[n]
             all p: Packet | packetDoesNotChange[p]
-
             dest.curState' = dest.curState
             dest.sendBuffer' = dest.sendBuffer
             dest.seqNum' = dest.seqNum
@@ -565,21 +565,190 @@ pred traces {
     }
 }
 
-pred traces2 {
-    always {validState}
-    some disj sender, receiver: Node | {
-        Connected[sender, receiver]
-        no sender.receiveBuffer
-        no receiver.receiveBuffer
-        no sender.sendBuffer
-        no receiver.sendBuffer
-        no Network.packets
-        always moves[sender, receiver]
-        eventually Close[sender, receiver]
-        eventually Close[receiver, sender]
+TCP: run {
+    traces
+} for exactly 2 Node, exactly 4 Packet
+
+
+pred retransmissionInit {
+    // all the nodes are unique
+    uniqueNodes
+    // All nodes are in closed state:
+    all n: Node | {
+        n.curState = Established
+    }
+    // The network is empty:
+    no Network.packets
+    
+    // All nodes should be empty
+    all n: Node | {
+        no n.receiveBuffer
+        no n.sendBuffer
+        n.seqNum = 0
+        n.ackNum = 0
+        n.send_next = 0
+        n.recv_next = 1
+    }
+    
+    all packet : Packet | {
+        packet.src = none
+        packet.dst = none
+        packet.pSeqNum = none
+        packet.pAckNum = none
+    }
+
+    all n: Node | {
+        some n2: Node - n | {
+            n.connectedNode = n2
+            n2.connectedNode = n
+            Connected[n, n2]
+        }
     }
 }
 
-run {
-    traces
+pred userSendRt[sender: Node] {
+    no Network.packets
+    all n: Node | no n.sendBuffer and no n.receiveBuffer
+    Connected[sender, sender.connectedNode]
+    sender.seqNum' = sender.seqNum
+    sender.ackNum' = sender.ackNum
+    sender.send_next' = add[sender.send_next ,2]
+    sender.receiveBuffer' = sender.receiveBuffer
+    sender.connectedNode' = sender.connectedNode
+    sender.recv_next' = sender.recv_next
+    sender.curState' = sender.curState
+
+    one packet: DataPacket | {
+        packet.src' = sender
+        packet.dst' = sender.connectedNode
+        packet.pSeqNum' = sender.send_next'
+        packet.pAckNum' = sender.recv_next'
+        sender.sendBuffer' = sender.sendBuffer + packet
+    }
+    nodeDoesNotChange[sender.connectedNode]
+    Network.packets' = Network.packets
+}
+
+pred receiveRt[node: Node] {
+    Network.packets' = Network.packets
+    some packet: node.receiveBuffer | {
+        let srcNode = packet.src | {
+
+            node.receiveBuffer' = node.receiveBuffer - packet
+            // Established state: Process data, update recv_next and send ACK
+            (node.curState = Established and packet in DataPacket) => {
+                node.curState' = node.curState
+                node.connectedNode' = node.connectedNode
+                node.ackNum' = node.ackNum
+                node.seqNum' = node.seqNum
+                node.send_next' = node.send_next
+
+                (node.recv_next != packet.pSeqNum) => {
+                    // Only receive if in order
+                    node.recv_next' = node.recv_next
+
+                    one rt: Retransmit | {
+                        rt.src' = node
+                        rt.dst' = srcNode
+                        rt.pSeqNum' = node.recv_next'
+                        rt.pAckNum' = node.recv_next'
+                        node.sendBuffer' = node.sendBuffer + rt
+
+                        all p: Packet - rt | {
+                            packetDoesNotChange[p]
+                        }
+                    }
+
+                } else (node.recv_next = packet.pSeqNum) => {
+                    // Only receive if in order
+                    node.recv_next' = add[packet.pSeqNum, 1]
+
+                    one dataAck: AckPacket | {
+                        dataAck.src' = node
+                        dataAck.dst' = srcNode
+                        dataAck.pSeqNum' = node.send_next'
+                        dataAck.pAckNum' = node.recv_next'
+                        node.sendBuffer' = node.sendBuffer + dataAck
+
+                        all p: Packet - dataAck | {
+                            packetDoesNotChange[p]
+                        }
+                    }
+                }
+            }
+            else (packet in AckPacket) => {
+
+                node.curState' = node.curState
+                (node.curState = Established) => {
+                    node.curState' = node.curState
+                }
+                node.connectedNode' = node.connectedNode
+                node.ackNum' = node.ackNum
+                node.seqNum' = node.seqNum
+                node.send_next' = node.send_next
+                node.recv_next' = node.recv_next
+                // node.receiveBuffer' = node.receiveBuffer
+                node.sendBuffer' = node.sendBuffer
+
+                // Not sure what we do here, throw it away?
+                all p: Packet - packet | {
+                    packetDoesNotChange[p]
+                }
+                // next_state retransmissionInit
+            }
+            else (packet in Retransmit) => {
+                node.curState' = node.curState
+                node.connectedNode' = node.connectedNode
+                node.ackNum' = node.ackNum
+                node.seqNum' = node.seqNum
+                node.send_next' = node.send_next
+                node.recv_next' = node.recv_next
+
+                one data: DataPacket | {
+                    data.src' = node
+                    data.dst' = srcNode
+                    data.pSeqNum' = packet.pSeqNum
+                    data.pAckNum' = node.recv_next'
+                    node.sendBuffer' = node.sendBuffer + data
+
+                    all p: Packet - data | {
+                        packetDoesNotChange[p]
+                    }
+                }
+            }
+            // Frame conditions for all other nodes and packets
+            node.curState != LastAck => {
+                all n: Node - node | nodeDoesNotChange[n]
+            } 
+        }
+    }
+}
+
+pred rtMoves[sender, receiver: Node] {
+
+    Send[sender] or
+    Transfer or
+    receiveRt[receiver] or
+    receiveRt[sender] or
+    Send[receiver] or
+    userSendRt[sender] or
+    doNothing
+
+    all n: Node | {
+        some n.sendBuffer => eventually Send[n]
+        some n.receiveBuffer => eventually receiveRt[n]
+    }
+
+    some Network.packets => eventually Transfer
+}
+
+Retransmission: run {
+    retransmissionInit
+    always {validState}
+    some disj sender, receiver: Node | {
+        always Connected[sender, receiver]
+        always rtMoves[sender, receiver]
+        eventually userSendRt[sender]
+    }
+
 } for exactly 2 Node, exactly 4 Packet
