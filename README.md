@@ -6,6 +6,11 @@ Our project models the flow of a TCP connection between two nodes. This includes
 
 Our model mostly abstracts away the user application and actual data within packets, and has the TCP stack immediately push packets it receives up to the user, without concerning itself with the size of the buffer or needing the user to call recv. But the packets do have accurate sequence and ack numbers (1 byte data packets). 
 
+<img width="450" alt="ClosedConnection" src="https://github.com/user-attachments/assets/be94862d-0d01-4e28-ac62-a53ec1c34a44" />
+<img width="450" alt="EstablishedSendingData" src="https://github.com/user-attachments/assets/7bfb19ea-02f3-4d83-8788-b3cacf846973" />
+<img width="450" alt="Closing Sequence" src="https://github.com/user-attachments/assets/edee48e7-b261-4343-b8de-657aaff82f19" />
+
+
 ## Takeaways from our model:
 
 In our initial project proposal, we said that our stakeholders mostly involved people who want to learn about TCP. Thus, our model presented the following in teaching about the constraints of TCP by defining the formal aspects of the algorithm:
