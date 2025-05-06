@@ -1,7 +1,10 @@
 #lang forge/temporal
 
 option max_tracelength 40
-option min_tracelength 31
+// For retransmission:
+// option min_tracelength 14 
+// For basic trace:
+// option min_tracelength 31
 
 option solver Glucose
 // making it so that the visualization loads in automatically
@@ -10,7 +13,6 @@ option run_sterling "visualization.js"
 ---------- Definitions ----------
 
 abstract sig State {}
-
 one sig Closed extends State {}
 one sig SynReceived extends State {}
 one sig SynSent extends State {}
@@ -193,7 +195,6 @@ pred Open[sender, receiver: Node] {
             }
         }
     }
-
     nodeDoesNotChange[receiver]
     Network.packets' = Network.packets
 }
@@ -386,13 +387,10 @@ pred Receive[node: Node] {
             // first condition for closing
             else (node.curState = Established and packet in FinPacket) => {
                 node.curState' = CloseWait
-                // node.ackNum' = packet.pSeqNum
                 node.recv_next' = add[packet.pSeqNum, 1]
-                // node.connectedNode' = node.connectedNode
                 node.ackNum' = node.ackNum
                 node.seqNum' = node.seqNum
                 node.send_next' = node.send_next
-                // node.receiveBuffer' = node.receiveBuffer
                 node.connectedNode' = node.connectedNode
 
 
@@ -408,43 +406,13 @@ pred Receive[node: Node] {
                 }       
             }
 
-            // second condition for closing
-            // else (node.curState = FinWait1 and packet in FinPacket) => {
-            //     node.curState' = FinWait2
-            //     node.ackNum' = node.ackNum
-            //     // node.ackNum' = packet.pSeqNum
-            //     node.recv_next' = add[packet.pSeqNum, 1]
-            //     node.connectedNode' = node.connectedNode
-            //     node.seqNum' = node.seqNum
-            //     node.send_next' = node.send_next
-            //     // node.receiveBuffer' = node.receiveBuffer
-            //     node.sendBuffer' = node.sendBuffer
-            //     all p: Packet | {
-            //         packetDoesNotChange[p]
-            //     }
-
-            //     // one ack: AckPacket | {
-            //     //     ack.src' = node
-            //     //     ack.dst' = srcNode
-            //     //     ack.pSeqNum' = node.send_next'
-            //     //     ack.pAckNum' = node.recv_next'
-            //     //     node.sendBuffer' = node.sendBuffer + ack
-            //     //     all p: Packet - ack | {
-            //     //         packetDoesNotChange[p]
-            //     //     }
-            //     // }                 
-            // }
-
             else (node.curState = FinWait2 and packet in FinPacket) => {
                 node.curState' = Closed
                 node.ackNum' = node.ackNum
-                // node.ackNum' = packet.pSeqNum
                 node.recv_next' = add[packet.pSeqNum, 1]
                 node.connectedNode' = node.connectedNode
                 node.seqNum' = node.seqNum
                 node.send_next' = node.send_next
-                // node.receiveBuffer' = node.receiveBuffer
-                // node.sendBuffer' = none
 
                 one packet: AckPacket | {
                     packet.src' = node
@@ -469,7 +437,6 @@ pred Receive[node: Node] {
 
 pred Close[sender, receiver: Node] {
     // They must both be established and connected:
-    // Connected[sender, receiver]
     no Network.packets
     no sender.receiveBuffer
     no receiver.receiveBuffer
@@ -687,14 +654,12 @@ pred receiveRt[node: Node] {
                 node.seqNum' = node.seqNum
                 node.send_next' = node.send_next
                 node.recv_next' = node.recv_next
-                // node.receiveBuffer' = node.receiveBuffer
                 node.sendBuffer' = node.sendBuffer
 
                 // Not sure what we do here, throw it away?
                 all p: Packet - packet | {
                     packetDoesNotChange[p]
                 }
-                // next_state retransmissionInit
             }
             else (packet in Retransmit) => {
                 node.curState' = node.curState
