@@ -1,5 +1,7 @@
 # TCP Temporal Forge Model
+## Demo Video
 
+[DEMO OF OUR MODEL](https://drive.google.com/file/d/1NcSaZ0yb0s9M2YIKugwx9Dj-v9i2RaOg/view?usp=sharing)
 ## Project Overview
 
 Our project models the flow of a TCP connection between two nodes. This includes the 3-way handshake to open the connection, basic sending and receiving of acks, and standard active + passive closing of the connection.
@@ -56,7 +58,7 @@ Defines the starting/ending state of the temporal trace: the nodes are both clos
 ### traces:
 Defines the overall function and flow for TCP as a whole. It is easy to have the predicates and just call them all, but the traces predicate is what allows the system based on its constraints and properties to create the proper traces with the other predicates working together.
 
-We also have some predicates that mirror these mentioned but for retransmission (retransmissionInit, userSendRT, receiveRT, and rtMoves). They are similar to their counterparts for the regular TCP but a little looser to allow for retransmission to occur.
+We also have some predicates that mirror these mentioned but for retransmission (retransmissionInit, userSendRT, receiveRT, and rtMoves). They are similar to their counterparts for the regular TCP but a little looser to allow for retransmission to occur. Additionally, for its trace we force retransmission to actually occur so that we can see something meaningful about it.
 
 ## Additional Topics:
 ### Trade Offs
