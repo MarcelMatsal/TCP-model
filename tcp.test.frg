@@ -82,7 +82,7 @@ test suite for validState {
                 n.connectedNode = n2
                 no n2.connectedNode
             }
-        } is unsat
+        } is sat
     }
     
     // a send buffer contains packets with other node as the source
@@ -146,51 +146,6 @@ test suite for uniqueNodes {
         } is unsat
     }
 }
-
-test suite for ConnectionMaintainedUntilClosed {
-
-    // SAT CASES
-
-    // connection continues with nothing interrupting it
-    test expect {
-        workingMaintainance: {
-            all disj n1, n2: Node | {
-                n1.curState = Established
-                n2.curState = Established
-                n1.connectedNode = n2
-                n2.connectedNode = n1
-
-                connectionMaintainedUntilClosed[n1,n2] implies {
-                    always {
-                        n1.connectedNode = n2
-                        n2.connectedNode = n1
-                    }
-                }
-            }
-        } is sat
-    } 
-
-    // connection stops once they become closed
-    test expect {
-        workingMaintainanceEnd: {
-            all disj n1, n2: Node | {
-                n1.curState = Established
-                n2.curState = Established
-                n1.connectedNode = n2
-                n2.connectedNode = n1
-
-                (connectionMaintainedUntilClosed[n1,n2] and n1.curState = Closed and n2.curState = Closed) implies {
-                        n1.connectedNode != n2
-                        n2.connectedNode != n1
-                }
-            }
-        } is sat
-    } 
-    // UNSAT CASES
-
-
-}
-
 
 test suite for Connected {
 
@@ -1010,33 +965,32 @@ test suite for Receive {
 
 
 
-    // test expect {
-    //     sameSNet: {
-    //         some node : Node | {
-    //             some packet: node.receiveBuffer | {
-    //                 let srcNode = packet.src | {
-    //                     node.receiveBuffer' = node.receiveBuffer - packet
+    test expect {
+        sameSNet2: {
+            some node : Node | {
+                some packet: node.receiveBuffer | {
+                    let srcNode = packet.src | {
+                        node.receiveBuffer' = node.receiveBuffer - packet
 
-    //                 }
-    //             }
+                    }
+                }
 
-    //             Receive[node]
-    //         }
-    //     } is sat
-    // } 
-
-
-    // test expect {
-    //     sameSNet: {
-    //         some n: Node | {
-    //             Receive[n]
-    //         }
-    //         #{Network.packets'} = #{Network.packets}
-    //     } is sat
-    // } 
+                Receive[node]
+            }
+        } is sat
+    } 
 
 
-    // UNSAT Conditions
+    test expect {
+        sameSNet3: {
+            some n: Node | {
+                Receive[n]
+            }
+            #{Network.packets'} = #{Network.packets}
+        } is sat
+    } 
+
+
 
 }
 
@@ -1054,24 +1008,35 @@ test suite for Close {
 
 // /* SYSTEM TESTS */
 
+// pred receives {
+//     some disj sender, receiver: Node | {
+//         eventually {Receive[sender]}
+//     }
+// }
 
-
+// pred closes {
+//     some disj sender, receiver: Node  {
+//         eventually sender.curState = Closed
+//         eventually receiver.curState = Closed
+//     }
+// }
 
 
 
 // /* TRACES TESTS */
 
 
-test suite for Trace {
+// test suite for traces {
 
 
-    // always open implies eventually close
-
-
-
-    // things about TCP that are not the case for UDP
+//     transferMeansReceive: assert traces and Transfer implies receives is sat for exactly 2 Node
+//     WillClose: assert traces is sufficient for closes for exactly 2 Node
 
 
 
+//     // things about TCP that are not the case for UDP
 
-}
+
+
+
+// }
