@@ -25,6 +25,8 @@ function getPacketColor(packet) {
     return "#B698D7"
   } else if (packet.in(FinPacket)) {
     return "#986CC6"
+  } else if (packet.in(Retransmit)) {
+    return "#986CC6"
   }
   return "white"
 }
@@ -32,13 +34,12 @@ function getPacketColor(packet) {
 function getPacketDisplayName(packAtom) {
   packetPresent = packAtom.toString()
   if (packAtom.in(DataPacket)) {
-    packetPresent += " (Data)"
   } else if (packAtom.in(AckPacket)) {
     packetPresent += " (Ack)"
-    color = "#B698D7"
   } else if (packAtom.in(FinPacket)) {
     packetPresent += " (Fin)"
-    color = "#986CC6"
+  } else if (packAtom.in(Retransmit)) {
+    packetPresent += " (Retransmit)"
   }
   if (packAtom.pSeqNum.toString() != "") {
     packetPresent += ` Seq: ${packAtom.pSeqNum.toString()} Ack: ${packAtom.pAckNum.toString()}`
