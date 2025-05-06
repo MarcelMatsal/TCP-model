@@ -212,8 +212,8 @@ pred userSend[sender: Node] {
     one packet: DataPacket | {
         packet.src' = sender
         packet.dst' = sender.connectedNode
-        packet.pSeqNum' = sender.send_next'
-        packet.pAckNum' = sender.recv_next'
+        packet.pSeqNum' = sender.send_next
+        packet.pAckNum' = sender.recv_next
         sender.sendBuffer' = sender.sendBuffer + packet
     }
 
@@ -283,7 +283,7 @@ pred Receive[node: Node] {
                 some i: Int | {
                     i >= 0
                     node.seqNum' = i
-                    node.send_next' = add[i, 1]
+                    node.send_next' = i // add[i, 1]
                 }
 
                 one synAck: AckPacket | {
@@ -373,7 +373,7 @@ pred Receive[node: Node] {
                 node.ackNum' = node.ackNum
                 node.seqNum' = node.seqNum
                 node.send_next' = node.send_next
-                node.recv_next' = node.recv_next
+                node.recv_next' = add[packet.pSeqNum, 1]
                 // node.receiveBuffer' = node.receiveBuffer
                 node.sendBuffer' = node.sendBuffer
 
@@ -480,7 +480,7 @@ pred Close[sender, receiver: Node] {
     sender.connectedNode' = sender.connectedNode
     sender.seqNum' = sender.seqNum
     sender.ackNum' = sender.ackNum
-    sender.send_next' = sender.send_next
+    sender.send_next' = add[sender.send_next, 1]
     sender.recv_next' = sender.recv_next
     sender.receiveBuffer' = sender.receiveBuffer
     nodeDoesNotChange[receiver]
@@ -492,7 +492,7 @@ pred Close[sender, receiver: Node] {
         one packet: FinPacket | {
             packet.src' = sender
             packet.dst' = receiver
-            packet.pSeqNum' = sender.send_next'
+            packet.pSeqNum' = sender.send_next
             packet.pAckNum' = sender.recv_next'
             sender.sendBuffer' = sender.sendBuffer + packet
 
