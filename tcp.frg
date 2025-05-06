@@ -1,7 +1,7 @@
 #lang forge/temporal
 
 option max_tracelength 40
-option min_tracelength 14 //31
+option min_tracelength 31
 
 option solver Glucose
 // making it so that the visualization loads in automatically
