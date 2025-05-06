@@ -4,7 +4,7 @@ option max_tracelength 40
 // For retransmission:
 // option min_tracelength 14 
 // For basic trace:
-// option min_tracelength 31
+option min_tracelength 31
 
 option solver Glucose
 // making it so that the visualization loads in automatically
