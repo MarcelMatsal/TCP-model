@@ -70,6 +70,9 @@ Our goals mostly stayed the same throughout the project. We were aiming to produ
 ### Understanding an Instance
 Understanding an instance of our model will take multiple things into account so we recommend running our custom visualization to facilitate that understanding. To begin, the instance has three main components, the two nodes which are communicating with each other and the network. Each node has a send buffer and receive buffer which are used in conjunction with the network to communicate with the other node. When first looking at the instance, you should look at the current state of the nodes. This represents the different states that nodes can take in an actual TCP connection and helps you to understand what is occuring at the moment. The different states that the node can have are: Closed, SynReceived, SynSent, Established, FinWait1, FinWait2, TimeWait, CloseWait, LastAck. With SynReceived and SynSent having to do with the opening of the connection and FinWait1, FinWait2, TimeWait, CloseWait, and LastAck having to do with closing the connection. When running a trace, you will see how the nodes transition through the different states in the same way that a TCP connection does. This is done through the sending and receiving of different packets through the network (which you will be able to see in the custom visualization). There are four different kinds of packets that can be sent: DataPacket, AckPacket, FinPacket, and Retransmit. Meaning that for basic communication, when receiving a data packet, the node should respond with an AckPacket that is one greater than the sequence number of data packets that it received. These things come together to make the TCP connection and communication and will be able to be seen through a basic trace of running TCP. We also have a trace for Retransmission (which was one of our additional goals), where you should be able to see one node send a sequence number that is greater than what is expected, resulting in the other node sending a retransmit packet telling the node to send the correct information again. It then goes on to send the correct data packet resulting in the node acknowledging that it received the correct thing.
 
+## Testing
+
+We went ahead and tested our predicates to ensure that they were functioning properly. We utilized many different types of tests such as sat/unsat and assertions to make sure that everything was as intended. Additionally, we included some system-wide tests to make sure that properties of the system held and that we could learn about how TCP, and retransmission works. We tested our traces and feel confident about our model.
 
 ## Capstone Effort: Congestion Control
 
@@ -81,8 +84,6 @@ Finally, the model produces a graph visualizing the congestion window in compari
 
 
 The Hypothesis library was used to confirm that on any input of ack sequences, the model can solve for a congestion control response, and be verified to hold all expected properties of that response. Moreover, edge case testing was performed to confirm the strength of these testing measures.
-
-
 
 ### Collaborators: none.
 
