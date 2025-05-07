@@ -963,8 +963,6 @@ test suite for Receive {
         } is sat
     } 
 
-
-
     test expect {
         sameSNet2: {
             some node : Node | {
@@ -979,8 +977,6 @@ test suite for Receive {
             }
         } is sat
     } 
-
-
     test expect {
         sameSNet3: {
             some n: Node | {
@@ -989,54 +985,80 @@ test suite for Receive {
             #{Network.packets'} = #{Network.packets}
         } is sat
     } 
-
-
-
 }
-
-
 
 test suite for Close {
-    // SAT Condition
-
-
-    // UNSAT Conditions
-
+    test expect {
+        mustBeEstablishedOrEnd: { 
+            some disj sender, receiver: Node  {
+               Close[sender, receiver]
+                sender.curState = Established
+                receiver.curState = SynReceived
+            }
+        } for exactly 2 Node, exactly 4 Packet is unsat
+        achievableBidirectional: {
+            some disj sender, receiver: Node  {
+               eventually Close[sender, receiver]
+               eventually Close[receiver, sender]
+            }
+        } for exactly 2 Node, exactly 4 Packet is sat
+        noBuffers: {
+            some disj sender, receiver: Node  {
+               Close[sender, receiver]
+               #{sender.sendBuffer} > 0
+            }
+        } for exactly 2 Node, exactly 4 Packet is unsat
+    } 
 }
-
 
 
 // /* SYSTEM TESTS */
+pred receives {
+    some disj sender, receiver: Node | {
+        eventually {Receive[sender]}
+    }
+}
 
-// pred receives {
-//     some disj sender, receiver: Node | {
-//         eventually {Receive[sender]}
-//     }
-// }
-
-// pred closes {
-//     some disj sender, receiver: Node  {
-//         eventually sender.curState = Closed
-//         eventually receiver.curState = Closed
-//     }
-// }
-
+pred closes {
+    some disj sender, receiver: Node  {
+        eventually sender.curState = Closed
+        eventually receiver.curState = Closed
+    }
+}
 
 
 // /* TRACES TESTS */
-
-
-// test suite for traces {
-
-
-//     transferMeansReceive: assert traces and Transfer implies receives is sat for exactly 2 Node
-//     WillClose: assert traces is sufficient for closes for exactly 2 Node
-
-
-
-//     // things about TCP that are not the case for UDP
-
-
-
-
-// }
+test suite for traces {
+    // Any transfer triggers a receive
+    transferMeansReceive: assert (traces and Transfer) implies receives is sat for exactly 2 Node, exactly 4 Packet
+    // Must finish
+    test expect {
+        mustFinish: {
+             traces
+            and
+            (not eventually closes)
+        } for exactly 2 Node, exactly 4 Packet is unsat
+        alwaysValid: {
+            traces
+            and
+            (not always validState)
+        } for exactly 2 Node, exactly 4 Packet is unsat
+        // A sending means that an open happened.
+        sendMeansOpen: { 
+            some disj sender, receiver: Node  {
+                eventually {userSend[sender]}
+                traces
+                not once {Open[sender, receiver]}
+            }
+        } for exactly 2 Node, exactly 4 Packet is unsat
+        basic: {
+            traces
+        } for exactly 2 Node, exactly 4 Packet is sat
+        // At one point init
+        atOnePointInit: {
+            traces
+            and
+            (not once init)
+        } for exactly 2 Node, exactly 4 Packet is unsat
+    } 
+}
