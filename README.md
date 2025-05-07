@@ -88,7 +88,7 @@ The Tahoe model explores the constraints of how congestion window sizes grow and
 
 Finally, the model produces a graph visualizing the congestion window in comparison to Round Trip Time, showing periods of slow starting and additive increase / multiplicative decrease periods.
 
-!()[https://github.com/MarcelMatsal/TCP-model/blob/main/congestion_graph.png]
+<img width="450" alt="ClosedConnection" src="https://github.com/MarcelMatsal/TCP-model/blob/main/congestion_graph.png" />
 
 
 The Hypothesis library was used to confirm that on any input of ack sequences, the model can solve for a congestion control response, and be verified to hold all expected properties of that response. Moreover, edge case testing was performed to confirm the strength of these testing measures.
